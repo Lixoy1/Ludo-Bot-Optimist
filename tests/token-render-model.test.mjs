@@ -1,0 +1,96 @@
+import test from "node:test";
+import assert from "node:assert/strict";
+import { buildTokenRenderModel } from "../src/board/token-render-model.mjs";
+import { getFinishSlots, getHomeCell, getTrackCell, PLAYER_CONFIG } from "../src/board/classic-geometry.mjs";
+import { createClassicState, rollClassicDice, applyClassicMove } from "../src/engine/classic-engine.mjs";
+
+const roster = [
+  { id: "p1", color: "yellow", characterId: "optimist" },
+  { id: "p2", color: "blue", characterId: "poison" }
+];
+
+test("base tokens render at their own centered wells using the selected character portrait", () => {
+  const state = createClassicState(roster);
+  const model = buildTokenRenderModel(state);
+  assert.equal(model.length, 8);
+
+  for (const token of model.filter((item) => item.zone === "base")) {
+    const player = state.players.find((candidate) => candidate.id === token.owner);
+    const index = Number(token.tokenId.split(":")[1]);
+    const slot = PLAYER_CONFIG[token.color].baseSlots[index];
+    const pitch = 62.08849;
+    const expected = {
+      x: 33.617188 + (slot[0] + 0.5) * pitch,
+      y: 34.494141 + (slot[1] + 0.5) * pitch
+    };
+    assert.equal(token.characterId, player.characterId);
+    assert.equal(token.src, "/assets/characters/" + player.characterId + ".webp");
+    assert.ok(Math.abs(token.x - expected.x) < 1e-8);
+    assert.ok(Math.abs(token.y - expected.y) < 1e-8);
+    assert.ok(token.width < pitch);
+    assert.ok(token.height < pitch);
+    assert.equal(token.scale, 1);
+  }
+});
+
+test("an engine move is converted into the exact board track cell center", () => {
+  const state = createClassicState(roster);
+  const rolled = rollClassicDice(state, "p1", 6);
+  const moved = applyClassicMove(rolled.state, "p1", "p1:0");
+  const pawn = buildTokenRenderModel(moved.state).find((item) => item.tokenId === "p1:0");
+  const expected = getTrackCell(0);
+  assert.equal(pawn.zone, "track");
+  assert.equal(pawn.cellKey, "track:0");
+  assert.equal(pawn.trackIndex, undefined);
+  assert.deepEqual({ x: pawn.x, y: pawn.y }, { x: expected.x, y: expected.y });
+});
+
+test("three pawns stacked on one track cell receive separate compact render positions", () => {
+  const state = createClassicState(roster);
+  for (const id of ["p1:0", "p1:1", "p1:2"]) state.tokens[id].stepProgress = 4;
+  const pawns = buildTokenRenderModel(state).filter((item) => item.cellKey === "track:4");
+  assert.equal(pawns.length, 3);
+  assert.ok(pawns.every((pawn) => pawn.scale === 0.42));
+  assert.equal(new Set(pawns.map((pawn) => pawn.x + ":" + pawn.y)).size, 3);
+  assert.ok(pawns.every((pawn) => pawn.width < 62.08849 * 0.42));
+  assert.ok(pawns.every((pawn) => pawn.height < 62.08849 * 0.42));
+});
+
+test("four pawns in one home cell use a compact non-overlapping stack", () => {
+  const state = createClassicState(roster);
+  for (const id of ["p1:0", "p1:1", "p1:2", "p1:3"]) state.tokens[id].stepProgress = 53;
+  const pawns = buildTokenRenderModel(state).filter((item) => item.cellKey === "home:yellow:2");
+  const home = getHomeCell("yellow", 2);
+  assert.equal(pawns.length, 4);
+  assert.ok(pawns.every((pawn) => pawn.scale === 0.42));
+  assert.equal(new Set(pawns.map((pawn) => pawn.x + ":" + pawn.y)).size, 4);
+  assert.ok(pawns.every((pawn) => Math.abs(pawn.x - home.x) < 62.08849 / 2));
+  assert.ok(pawns.every((pawn) => Math.abs(pawn.y - home.y) < 62.08849 / 2));
+});
+
+test("finished pawns use four small individual sockets in the finish cell", () => {
+  const state = createClassicState(roster);
+  for (let index = 0; index < 4; index += 1) {
+    state.tokens["p1:" + index].stepProgress = 56;
+  }
+  state.players[0].status = "finished";
+  state.phase = "finished";
+  state.winner = "p1";
+
+  const pawns = buildTokenRenderModel(state).filter((item) => item.zone === "finished");
+  const slots = getFinishSlots("yellow");
+  assert.equal(pawns.length, 4);
+  assert.ok(pawns.every((pawn) => pawn.scale === 0.28));
+  assert.deepEqual(
+    pawns.map(({ x, y }) => ({ x, y })).sort((a, b) => a.y - b.y || a.x - b.x),
+    slots.map(({ x, y }) => ({ x, y })).sort((a, b) => a.y - b.y || a.x - b.x)
+  );
+  for (let i = 0; i < pawns.length; i += 1) {
+    for (let j = i + 1; j < pawns.length; j += 1) {
+      const dx = Math.abs(pawns[i].x - pawns[j].x);
+      const dy = Math.abs(pawns[i].y - pawns[j].y);
+      assert.ok(dx > (pawns[i].width + pawns[j].width) / 2 ||
+        dy > (pawns[i].height + pawns[j].height) / 2);
+    }
+  }
+});
