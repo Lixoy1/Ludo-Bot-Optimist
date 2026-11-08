@@ -14,7 +14,7 @@ import {
   positionFromProgress,
   tokenMovementPath
 } from "../src/board/coordinates.mjs";
-import { createClassicState } from "../src/engine/classic-engine.mjs";
+import { createClassicState, rollClassicDice, applyClassicMove } from "../src/engine/classic-engine.mjs";
 import { buildTokenRenderModel } from "../src/board/token-render-model.mjs";
 
 const GRID_STEP = 1;
@@ -142,4 +142,50 @@ test("movement path rejects invalid colors, token slots and impossible base jump
   assert.throws(() => tokenMovementPath("yellow", 0, 57), /outside/);
   assert.throws(() => tokenMovementPath("yellow", 4, 3), /follow origin/);
   assert.throws(() => tokenMovementPath("yellow", -1, 0, 4), /Token index/);
+});
+
+test("the engine and animation path agree at home entry and the exact finish for every color", () => {
+  const roster = [
+    { id: "yellow-player", color: "yellow", characterId: "optimist" },
+    { id: "blue-player", color: "blue", characterId: "poison" },
+    { id: "red-player", color: "red", characterId: "husky" },
+    { id: "green-player", color: "green", characterId: "lilya-detective" }
+  ];
+
+  for (const player of roster) {
+    const tokenId = player.id + ":2";
+
+    const entryState = createClassicState(roster);
+    entryState.currentPlayer = player.id;
+    entryState.tokens[tokenId].stepProgress = 50;
+    const entryRoll = rollClassicDice(entryState, player.id, 1);
+    const entryMove = applyClassicMove(entryRoll.state, player.id, tokenId);
+    const entryPath = tokenMovementPath(player.color, 50, 51, 2);
+
+    assert.equal(entryMove.state.tokens[tokenId].stepProgress, 51);
+    assert.equal(entryMove.state.lastAction.to.zone, "home");
+    assert.equal(entryPath.length, 1);
+    assert.equal(entryPath[0].homeIndex, 0);
+    assert.deepEqual(
+      { x: entryPath[0].x, y: entryPath[0].y },
+      { x: getHomeCell(player.color, 0).x, y: getHomeCell(player.color, 0).y }
+    );
+
+    const finishState = createClassicState(roster);
+    finishState.currentPlayer = player.id;
+    finishState.tokens[tokenId].stepProgress = 55;
+    const finishRoll = rollClassicDice(finishState, player.id, 1);
+    const finishMove = applyClassicMove(finishRoll.state, player.id, tokenId);
+    const finishPath = tokenMovementPath(player.color, 55, 56, 2);
+    const renderedFinish = buildTokenRenderModel(finishMove.state).find((item) => item.tokenId === tokenId);
+
+    assert.equal(finishMove.state.tokens[tokenId].stepProgress, 56);
+    assert.equal(finishMove.state.lastAction.to.zone, "finished");
+    assert.equal(finishPath.length, 1);
+    assert.equal(finishPath[0].finishSlot, 2);
+    assert.deepEqual(
+      { x: finishPath[0].x, y: finishPath[0].y },
+      { x: renderedFinish.x, y: renderedFinish.y }
+    );
+  }
 });
