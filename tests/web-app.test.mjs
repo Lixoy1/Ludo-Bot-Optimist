@@ -2,6 +2,8 @@ import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
 import { request } from "node:http";
+import { execFileSync } from "node:child_process";
+import { resolve } from "node:path";
 import { createDevServer } from "../scripts/dev-server.mjs";
 
 test("the browser app loads a responsive board and the interactive game module", async () => {
@@ -61,4 +63,32 @@ test("the development server serves the app, browser modules and character asset
     req.end();
   });
   assert.equal(deniedStatus, 400);
+});
+
+test("the static deployment build contains the board, all characters and browser modules", async () => {
+  const root = resolve(new URL("..", import.meta.url).pathname);
+  execFileSync(process.execPath, ["scripts/build-web.mjs"], { cwd: root, stdio: "pipe" });
+
+  const required = [
+    "dist/index.html",
+    "dist/apps/web/main.mjs",
+    "dist/apps/web/styles.css",
+    "dist/src/engine/classic-engine.mjs",
+    "dist/src/board/movement-animation.mjs",
+    "dist/assets/boards/ludo-board-web.svg",
+    "dist/assets/characters/optimist.webp",
+    "dist/assets/characters/poison.webp",
+    "dist/assets/characters/husky.webp",
+    "dist/assets/characters/lilya-detective.webp",
+    "dist/.nojekyll"
+  ];
+
+  for (const path of required) {
+    const file = await readFile(resolve(root, path));
+    assert.ok(file.length > 0, path);
+  }
+
+  const html = await readFile(resolve(root, "dist/index.html"), "utf8");
+  assert.ok(html.includes("./apps/web/main.mjs"));
+  assert.ok(html.includes("./assets/boards/ludo-board-web.svg"));
 });
