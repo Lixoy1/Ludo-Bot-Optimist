@@ -30,7 +30,7 @@ export function createDevServer(root = ROOT) {
 
     let pathname;
     try {
-      pathname = decodeURIComponent(new URL(request.url ?? "/", "http://localhost").pathname);
+      pathname = decodeURIComponent((request.url ?? "/").split("?")[0]);
     } catch {
       response.writeHead(400, { "content-type": "text/plain; charset=utf-8" });
       response.end("Bad request");
