@@ -328,7 +328,7 @@ export function sampleTurnAnimationPlan(plan, elapsedMs) {
     const localTime = time - entry.delayMs;
     return {
       tokenId: entry.tokenId,
-      active: localTime >= 0 && localTime <= entry.animation.durationMs,
+      active: localTime >= 0 && localTime < entry.animation.durationMs,
       ...samplePawnCaptureAnimation(entry.animation, localTime)
     };
   });
