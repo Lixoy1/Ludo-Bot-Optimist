@@ -70,3 +70,8 @@ The first authenticated room API is in `apps/backend/`. Run it with `npm run sta
 ## PostgreSQL persistence
 
 Set `DATABASE_URL` in the backend environment to enable persistent rooms. Production startup refuses to use volatile memory when the database URL is missing. Run `npm install`, optionally `npm run db:init`, then `npm run start:api`. Setup, schema and current limitations: [docs/POSTGRES-PERSISTENCE.md](docs/POSTGRES-PERSISTENCE.md).
+
+
+## Realtime and concurrency
+
+Room writes use optimistic version checks to reject stale simultaneous actions with HTTP 409. Authenticated players can request a short-lived, single-use WebSocket ticket at `POST /api/rooms/:code/ticket`, then subscribe to `/api/rooms/:code/events?ticket=...` for committed room snapshots. Game actions remain on the authenticated HTTP API. See [docs/REALTIME-AND-CONCURRENCY.md](docs/REALTIME-AND-CONCURRENCY.md).
