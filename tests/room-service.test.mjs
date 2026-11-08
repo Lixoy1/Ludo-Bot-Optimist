@@ -37,7 +37,8 @@ test("host can start a 2–4 player room and only the current player can roll", 
 test("only the host starts the game; room rejects a fifth player and joins after start", async () => {
   const service = new RoomService();
   const host = await service.createRoom({ username: "Host" });
-  const guests = await Promise.all([1, 2, 3].map((n) => service.joinRoom(host.room.id, { username: "Guest " + n })));
+  const guests = [];
+  for (const n of [1, 2, 3]) guests.push(await service.joinRoom(host.room.id, { username: "Guest " + n }));
   await assert.rejects(() => service.joinRoom(host.room.id, { username: "Fifth" }), { message: "Room is full." });
   await assert.rejects(() => service.startRoom(host.room.id, guests[0].playerId, guests[0].playerSecret), { message: "Only the room host can start the game." });
 
