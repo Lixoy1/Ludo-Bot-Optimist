@@ -1,3 +1,4 @@
+import WebSocket from "ws";
 import test from "node:test";
 import assert from "node:assert/strict";
 import { createApiServer } from "../apps/backend/api-server.mjs";
@@ -88,4 +89,38 @@ test("HTTP API validates player moves and does not trust a client-supplied dice 
     const invalid = await fetch(origin + "/api/rooms/" + host.room.id + "/move", json({ tokenId: "missing:0", dice: 6 }, auth(host)));
     assert.equal(invalid.status, 409);
   });
+});
+
+test("authenticated WebSocket ticket receives committed room updates", async () => {
+  const { RoomService } = await import("../apps/backend/room-service.mjs");
+  const service = new RoomService({ rollDie: () => 6 });
+  const server = createApiServer({ service });
+  const { attachRealtime } = await import("../apps/backend/realtime.mjs");
+  const realtime = attachRealtime(server, service);
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  try {
+    const origin = "http://127.0.0.1:" + server.address().port;
+    const host = await (await fetch(origin + "/api/rooms", json({ username: "Host" }))).json();
+    await fetch(origin + "/api/rooms/" + host.room.id + "/join", json({ username: "Guest" }));
+    await fetch(origin + "/api/rooms/" + host.room.id + "/start", { method: "POST", headers: auth(host) });
+    const ticketResponse = await fetch(origin + "/api/rooms/" + host.room.id + "/ticket", { method: "POST", headers: auth(host) });
+    assert.equal(ticketResponse.status, 200);
+    const { ticket, expiresInSeconds } = await ticketResponse.json();
+    assert.equal(expiresInSeconds, 30);
+    const ws = new WebSocket("ws://127.0.0.1:" + server.address().port + "/api/rooms/" + host.room.id + "/events?ticket=" + encodeURIComponent(ticket));
+    try {
+      await new Promise((resolve, reject) => { ws.once("open", resolve); ws.once("error", reject); });
+      const connected = await new Promise(resolve => ws.once("message", data => resolve(JSON.parse(data.toString()))));
+      assert.equal(connected.type, "connected");
+      const updatePromise = new Promise(resolve => ws.once("message", data => resolve(JSON.parse(data.toString()))));
+      const roll = await fetch(origin + "/api/rooms/" + host.room.id + "/roll", { method: "POST", headers: auth(host) });
+      assert.equal(roll.status, 200);
+      const update = await updatePromise;
+      assert.equal(update.type, "room:update");
+      assert.equal(update.room.state.revision, 1);
+    } finally { ws.close(); }
+  } finally {
+    realtime.close();
+    await new Promise(resolve => server.close(resolve));
+  }
 });
