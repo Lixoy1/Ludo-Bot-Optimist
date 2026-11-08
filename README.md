@@ -65,3 +65,8 @@ The current browser demo runs locally or can be published to GitHub Pages after 
 The first authenticated room API is in `apps/backend/`. Run it with `npm run start:api` (default port 4174). It creates and joins 2–4 player rooms, starts games as the host, generates dice on the server, and validates moves with the Classic engine. See [docs/BACKEND-ROOM-API.md](docs/BACKEND-ROOM-API.md) for endpoints and current limitations.
 
 **Important:** room storage is still in memory. Rooms do not survive a backend restart; durable storage, WebSocket broadcasts, reconnects and Telegram authentication are not yet implemented.
+
+
+## PostgreSQL persistence
+
+Set `DATABASE_URL` in the backend environment to enable persistent rooms. Production startup refuses to use volatile memory when the database URL is missing. Run `npm install`, optionally `npm run db:init`, then `npm run start:api`. Setup, schema and current limitations: [docs/POSTGRES-PERSISTENCE.md](docs/POSTGRES-PERSISTENCE.md).
