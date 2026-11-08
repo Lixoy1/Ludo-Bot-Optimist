@@ -14,7 +14,7 @@ test("the coordinate audit overlay references the original board without alterin
   const svg = await readFile(new URL("../assets/boards/classic-coordinate-audit.svg", import.meta.url), "utf8");
   assert.match(svg, /href="ludo-board-prototype\.svg"/);
   assert.equal((svg.match(/<circle /g) || []).length >= 52, true);
-  assert.match(svg, /Yellow|YELLOW|yellow/i);
+  assert.match(svg, /#ffc400/);
 });
 
 test("all measured project character portraits are present as non-empty WebP files", async () => {
