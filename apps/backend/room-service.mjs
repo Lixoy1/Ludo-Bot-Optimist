@@ -1,178 +1,77 @@
 import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
-import {
-  createClassicState,
-  rollClassicDice,
-  applyClassicMove
-} from "../../src/engine/classic-engine.mjs";
+import { createClassicState, rollClassicDice, applyClassicMove } from "../../src/engine/classic-engine.mjs";
 import { getCharacter } from "../../src/characters.mjs";
+import { MemoryRoomStore } from "./room-store.mjs";
 
-const ROOM_CODE_ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
-const ROOM_CODE_LENGTH = 6;
-const MAX_ROOM_AGE_MS = 1000 * 60 * 60 * 12;
-
-function makeRoomCode() {
-  return Array.from({ length: ROOM_CODE_LENGTH }, () =>
-    ROOM_CODE_ALPHABET[randomInt(ROOM_CODE_ALPHABET.length)]
-  ).join("");
+const ALPHABET = "ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+const MAX_ROOM_AGE_MS = 12 * 60 * 60 * 1000;
+const code = () => Array.from({length:6}, () => ALPHABET[randomInt(ALPHABET.length)]).join("");
+const id = () => randomBytes(8).toString("hex");
+const secret = () => randomBytes(32).toString("base64url");
+function matches(a,b) {
+  if (typeof a !== "string" || typeof b !== "string") return false;
+  const x=Buffer.from(a), y=Buffer.from(b);
+  return x.length===y.length && timingSafeEqual(x,y);
 }
-
-function makePlayerId() {
-  return randomBytes(8).toString("hex");
+function view(room) {
+  return { id:room.id,status:room.status,createdAt:room.createdAt,updatedAt:room.updatedAt,
+    players:room.players.map(({secret,...p})=>({...p})),state:room.state?structuredClone(room.state):null };
 }
-
-function makePlayerSecret() {
-  return randomBytes(32).toString("base64url");
-}
-
-function secretMatches(expected, supplied) {
-  if (typeof expected !== "string" || typeof supplied !== "string") return false;
-  const a = Buffer.from(expected);
-  const b = Buffer.from(supplied);
-  return a.length === b.length && timingSafeEqual(a, b);
-}
-
-function publicRoom(room) {
-  return {
-    id: room.id,
-    status: room.status,
-    createdAt: room.createdAt,
-    players: room.players.map(({ secret, ...player }) => ({ ...player })),
-    state: room.state ? structuredClone(room.state) : null
-  };
-}
-
 export class RoomService {
-  #rooms = new Map();
-  #now;
-  #rollDie;
-
-  constructor({ now = () => Date.now(), rollDie = () => randomInt(1, 7) } = {}) {
-    if (typeof now !== "function" || typeof rollDie !== "function") {
-      throw new TypeError("Room service clock and die roller must be functions.");
-    }
-    this.#now = now;
-    this.#rollDie = rollDie;
+  #store; #now; #rollDie;
+  constructor({store=new MemoryRoomStore(),now=()=>Date.now(),rollDie=()=>randomInt(1,7)}={}) {
+    if (!store || !["get","insert","save","delete"].every(k=>typeof store[k]==="function")) throw new TypeError("Room store adapter is invalid.");
+    if(typeof now!=="function"||typeof rollDie!=="function") throw new TypeError("Clock and die roller must be functions.");
+    this.#store=store;this.#now=now;this.#rollDie=rollDie;
   }
-
-  createRoom({ username, characterId = "optimist" }) {
-    const safeUsername = String(username ?? "").trim().slice(0, 32);
-    if (!safeUsername) throw new TypeError("Username is required.");
-    getCharacter(characterId);
-
-    let id;
-    do id = makeRoomCode();
-    while (this.#rooms.has(id));
-
-    const player = {
-      id: makePlayerId(),
-      username: safeUsername,
-      characterId,
-      color: "yellow",
-      secret: makePlayerSecret()
-    };
-    const room = {
-      id,
-      status: "waiting",
-      createdAt: this.#now(),
-      players: [player],
-      state: null
-    };
-    this.#rooms.set(id, room);
-    return { room: publicRoom(room), playerId: player.id, playerSecret: player.secret };
+  async createRoom({username,characterId="optimist"}) {
+    const name=String(username??"").trim().slice(0,32);if(!name)throw new TypeError("Username is required.");getCharacter(characterId);
+    let room;
+    do { const timestamp=this.#now();room={id:code(),status:"waiting",createdAt:timestamp,updatedAt:timestamp,
+      players:[{id:id(),username:name,characterId,color:"yellow",secret:secret()}],state:null}; }
+    while(!(await this.#store.insert(room)));
+    const p=room.players[0];return {room:view(room),playerId:p.id,playerSecret:p.secret};
   }
-
-  joinRoom(roomId, { username, characterId = "optimist" }) {
-    const room = this.#getRoom(roomId);
-    const safeUsername = String(username ?? "").trim().slice(0, 32);
-    if (!safeUsername) throw new TypeError("Username is required.");
-    getCharacter(characterId);
-    if (room.status !== "waiting") throw new Error("Room is not accepting players.");
-    if (room.players.length >= 4) throw new Error("Room is full.");
-
-    const colors = ["yellow", "blue", "red", "green"];
-    const player = {
-      id: makePlayerId(),
-      username: safeUsername,
-      characterId,
-      color: colors[room.players.length],
-      secret: makePlayerSecret()
-    };
-    room.players.push(player);
-    return { room: publicRoom(room), playerId: player.id, playerSecret: player.secret };
+  async joinRoom(roomId,{username,characterId="optimist"}) {
+    const r=await this.#get(roomId),name=String(username??"").trim().slice(0,32);
+    if(!name)throw new TypeError("Username is required.");getCharacter(characterId);
+    if(r.status!=="waiting")throw new Error("Room is not accepting players.");
+    if(r.players.length>=4)throw new Error("Room is full.");
+    const p={id:id(),username:name,characterId,color:["yellow","blue","red","green"][r.players.length],secret:secret()};
+    r.players.push(p);r.updatedAt=this.#now();await this.#store.save(r);
+    return {room:view(r),playerId:p.id,playerSecret:p.secret};
   }
-
-  startRoom(roomId, playerId, secret) {
-    const room = this.#getRoom(roomId);
-    this.#authorize(room, playerId, secret);
-    if (room.status !== "waiting") throw new Error("Room has already started.");
-    if (room.players[0].id !== playerId) throw new Error("Only the room host can start the game.");
-    if (room.players.length < 2) throw new Error("At least two players are required.");
-
-    room.state = createClassicState(room.players.map(({ id, username, color, characterId }) => ({
-      id, username, color, characterId
-    })));
-    room.status = "playing";
-    return publicRoom(room);
+  async startRoom(roomId,playerId,playerSecret) {
+    const r=await this.#get(roomId);this.#auth(r,playerId,playerSecret);
+    if(r.status!=="waiting")throw new Error("Room has already started.");
+    if(r.players[0].id!==playerId)throw new Error("Only the room host can start the game.");
+    if(r.players.length<2)throw new Error("At least two players are required.");
+    r.state=createClassicState(r.players.map(({id,username,color,characterId})=>({id,username,color,characterId})));
+    r.status="playing";r.updatedAt=this.#now();await this.#store.save(r);return view(r);
   }
-
-  getRoom(roomId, playerId, secret) {
-    const room = this.#getRoom(roomId);
-    this.#authorize(room, playerId, secret);
-    return publicRoom(room);
+  async getRoom(roomId,playerId,playerSecret) {
+    const r=await this.#get(roomId);this.#auth(r,playerId,playerSecret);return view(r);
   }
-
-  roll(roomId, playerId, secret) {
-    const room = this.#playingRoom(roomId);
-    this.#authorize(room, playerId, secret);
-    if (room.state.currentPlayer !== playerId) throw new Error("It is not your turn.");
-    const dice = this.#rollDie();
-    const result = rollClassicDice(room.state, playerId, dice);
-    room.state = result.state;
-    return {
-      room: publicRoom(room),
-      dice,
-      legalTokenIds: result.legalTokenIds,
-      skipped: result.skipped,
-      bonusRoll: result.bonusRoll,
-      turnAdvanced: result.turnAdvanced
-    };
+  async roll(roomId,playerId,playerSecret) {
+    const r=await this.#playing(roomId);this.#auth(r,playerId,playerSecret);
+    if(r.state.currentPlayer!==playerId)throw new Error("It is not your turn.");
+    const dice=this.#rollDie(),result=rollClassicDice(r.state,playerId,dice);
+    r.state=result.state;r.updatedAt=this.#now();await this.#store.save(r);
+    return {room:view(r),dice,legalTokenIds:result.legalTokenIds,skipped:result.skipped,bonusRoll:result.bonusRoll,turnAdvanced:result.turnAdvanced};
   }
-
-  move(roomId, playerId, secret, tokenId) {
-    const room = this.#playingRoom(roomId);
-    this.#authorize(room, playerId, secret);
-    if (room.state.currentPlayer !== playerId) throw new Error("It is not your turn.");
-    const result = applyClassicMove(room.state, playerId, tokenId);
-    room.state = result.state;
-    if (room.state.phase === "finished") room.status = "finished";
-    return {
-      room: publicRoom(room),
-      captured: result.captured,
-      bonusRoll: result.bonusRoll,
-      turnAdvanced: result.turnAdvanced
-    };
+  async move(roomId,playerId,playerSecret,tokenId) {
+    const r=await this.#playing(roomId);this.#auth(r,playerId,playerSecret);
+    if(r.state.currentPlayer!==playerId)throw new Error("It is not your turn.");
+    const result=applyClassicMove(r.state,playerId,tokenId);r.state=result.state;
+    if(r.state.phase==="finished")r.status="finished";
+    r.updatedAt=this.#now();await this.#store.save(r);
+    return {room:view(r),captured:result.captured,bonusRoll:result.bonusRoll,turnAdvanced:result.turnAdvanced};
   }
-
-  #getRoom(roomId) {
-    const id = String(roomId ?? "").toUpperCase();
-    const room = this.#rooms.get(id);
-    if (!room || this.#now() - room.createdAt > MAX_ROOM_AGE_MS) {
-      if (room) this.#rooms.delete(id);
-      throw new Error("Room not found or expired.");
-    }
-    return room;
+  async #get(roomId) {
+    const key=String(roomId??"").toUpperCase(),r=await this.#store.get(key);
+    if(!r||this.#now()-r.createdAt>MAX_ROOM_AGE_MS){if(r)await this.#store.delete(key);throw new Error("Room not found or expired.");}
+    return r;
   }
-
-  #playingRoom(roomId) {
-    const room = this.#getRoom(roomId);
-    if (room.status !== "playing" || !room.state) throw new Error("Game has not started.");
-    return room;
-  }
-
-  #authorize(room, playerId, secret) {
-    const player = room.players.find((candidate) => candidate.id === playerId);
-    if (!player || !secretMatches(player.secret, secret)) {
-      throw new Error("Player authentication failed.");
-    }
-  }
+  async #playing(roomId) {const r=await this.#get(roomId);if(r.status!=="playing"||!r.state)throw new Error("Game has not started.");return r;}
+  #auth(r,pid,s) {const p=r.players.find(x=>x.id===pid);if(!p||!matches(p.secret,s))throw new Error("Player authentication failed.");}
 }
