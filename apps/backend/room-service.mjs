@@ -49,7 +49,7 @@ export class RoomService extends EventEmitter {
     if(r.players[0].id!==playerId)throw new Error("Only the room host can start the game.");
     if(r.players.length<2)throw new Error("At least two players are required.");
     r.state=createClassicState(r.players.map(({id,username,color,characterId})=>({id,username,color,characterId})));
-    r.status="playing";r.updatedAt=this.#now();await this.#store.save(r);return view(r);
+    r.status="playing";r.updatedAt=this.#now();await this.#store.save(r);this.emit("room:update",view(r));return view(r);
   }
   async getRoom(roomId,playerId,playerSecret) {
     const r=await this.#get(roomId);this.#auth(r,playerId,playerSecret);return view(r);
@@ -58,7 +58,7 @@ export class RoomService extends EventEmitter {
     const r=await this.#playing(roomId);this.#auth(r,playerId,playerSecret);
     if(r.state.currentPlayer!==playerId)throw new Error("It is not your turn.");
     const dice=this.#rollDie(),result=rollClassicDice(r.state,playerId,dice);
-    r.state=result.state;r.updatedAt=this.#now();await this.#store.save(r);
+    r.state=result.state;r.updatedAt=this.#now();await this.#store.save(r);this.emit("room:update",view(r));
     return {room:view(r),dice,legalTokenIds:result.legalTokenIds,skipped:result.skipped,bonusRoll:result.bonusRoll,turnAdvanced:result.turnAdvanced};
   }
   async move(roomId,playerId,playerSecret,tokenId) {
@@ -66,7 +66,7 @@ export class RoomService extends EventEmitter {
     if(r.state.currentPlayer!==playerId)throw new Error("It is not your turn.");
     const result=applyClassicMove(r.state,playerId,tokenId);r.state=result.state;
     if(r.state.phase==="finished")r.status="finished";
-    r.updatedAt=this.#now();await this.#store.save(r);
+    r.updatedAt=this.#now();await this.#store.save(r);this.emit("room:update",view(r));
     return {room:view(r),captured:result.captured,bonusRoll:result.bonusRoll,turnAdvanced:result.turnAdvanced};
   }
   async #get(roomId) {
