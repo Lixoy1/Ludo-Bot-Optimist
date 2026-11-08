@@ -1,10 +1,4 @@
-import {
-  BOARD,
-  baseSlotPoint,
-  getFinishSlots,
-  getHomeCell,
-  getTrackCell
-} from "./classic-geometry.mjs";
+import { BOARD } from "./classic-geometry.mjs";
 import { tokenMovementPath } from "./coordinates.mjs";
 import { buildTokenRenderModel } from "./token-render-model.mjs";
 
