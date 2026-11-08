@@ -9,7 +9,18 @@ import { getPawnDimensions, getPawnStackLayout } from "./pawn-layout.mjs";
 import { getCharacter } from "../characters.mjs";
 import { assertClassicState, globalTrackIndex } from "../engine/classic-engine.mjs";
 
+export const SPRITE_BASELINE_RATIO = 0.94;
 const FINISH_TOKEN_SCALE = 0.28;
+
+function imageBox(anchorX, anchorY, size) {
+  return {
+    anchorX,
+    anchorY,
+    imageX: anchorX - size.width / 2,
+    imageY: anchorY - size.height * SPRITE_BASELINE_RATIO,
+    baselineRatio: SPRITE_BASELINE_RATIO
+  };
+}
 
 export function buildTokenRenderModel(state) {
   assertClassicState(state);
@@ -66,19 +77,20 @@ export function buildTokenRenderModel(state) {
     return {
       tokenId: item.token.id,
       owner: item.player.id,
-      progress: item.token.stepProgress,
-      baseSlot: item.zone === "base" ? item.token.index : undefined,
-      finishSlot: item.zone === "finished" ? item.token.index : undefined,
       color: item.token.color,
       characterId: item.player.characterId,
       src: item.character.src,
       zone: item.zone,
+      progress: item.token.stepProgress,
+      baseSlot: item.zone === "base" ? item.token.index : undefined,
+      finishSlot: item.zone === "finished" ? item.token.index : undefined,
       cellKey: item.cellKey,
       x: item.x,
       y: item.y,
       width: size.width,
       height: size.height,
-      scale
+      scale,
+      ...imageBox(item.x, item.y, size)
     };
   });
 
@@ -87,22 +99,25 @@ export function buildTokenRenderModel(state) {
     group.forEach((item, index) => {
       const offset = layout[index];
       const size = getPawnDimensions(item.character, BOARD.grid.cellPitch, offset.scale);
+      const anchorX = item.x + offset.x;
+      const anchorY = item.y + offset.y;
       renderItems.push({
         tokenId: item.token.id,
         owner: item.player.id,
-        progress: item.token.stepProgress,
-        trackIndex: item.zone === "track" ? item.trackIndex : undefined,
-        homeIndex: item.zone === "home" ? item.homeIndex : undefined,
         color: item.token.color,
         characterId: item.player.characterId,
         src: item.character.src,
         zone: item.zone,
+        progress: item.token.stepProgress,
+        trackIndex: item.zone === "track" ? item.trackIndex : undefined,
+        homeIndex: item.zone === "home" ? item.homeIndex : undefined,
         cellKey,
-        x: item.x + offset.x,
-        y: item.y + offset.y,
+        x: anchorX,
+        y: anchorY,
         width: size.width,
         height: size.height,
-        scale: offset.scale
+        scale: offset.scale,
+        ...imageBox(anchorX, anchorY, size)
       });
     });
   }
