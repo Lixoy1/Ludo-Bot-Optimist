@@ -20,7 +20,7 @@ jobs:
       - name: Check generated board artifacts are committed
         run: git diff --exit-code -- Coordinates_Map.json
       - name: Install SVG rasterizer
-        run: npm install --no-save --package-lock=false sharp
+        run: npm install --no-save --package-lock=false sharp playwright
       - name: Render visual board preview as PNG
         run: npm run build:preview:png
       - name: Commit generated visual previews
@@ -33,7 +33,18 @@ jobs:
             git commit -m "Generate updated classic board visual previews"
             git push
           fi
-      - name: Run geometry and pawn tests
+      - name: Install Chromium for browser smoke test
+        run: npx playwright install --with-deps chromium
+      - name: Run geometry, engine, app and server tests
         run: npm test
+      - name: Run mobile browser interaction smoke test
+        run: node scripts/browser-smoke.mjs
+      - name: Upload browser smoke screenshot
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: optimist-ludo-browser-smoke
+          path: dist/browser-smoke.png
+          if-no-files-found: ignore
       - name: Check source syntax
         run: npm run check
