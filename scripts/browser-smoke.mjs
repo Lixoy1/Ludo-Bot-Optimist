@@ -78,7 +78,7 @@ try {
     startingPawns: startingPawnCount,
     rollsUntilMove: rolls,
     selectedToken: tokenId,
-    revisionAfterMove: 2,
+    revisionAfterMove: revisionBeforeMove + 1,
     screenshot: "dist/browser-smoke.png"
   }) + "\n");
 } finally {
