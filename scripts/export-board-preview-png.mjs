@@ -15,8 +15,15 @@ const roster = [
 const state = createClassicState(roster);
 [3, 9, 15, 21].forEach((progress, index) => {
   const player = roster[index];
-  state.tokens[player.id + ":0"].stepProgress = progress;
-  state.tokens[player.id + ":1"].stepProgress = 53;
+  if (index === 0) {
+    // Four identical pawns share one outer cell to show the 2x2 mini-cell layout.
+    for (let tokenIndex = 0; tokenIndex < 4; tokenIndex += 1) {
+      state.tokens[player.id + ":" + tokenIndex].stepProgress = 4;
+    }
+  } else {
+    state.tokens[player.id + ":0"].stepProgress = progress;
+    state.tokens[player.id + ":1"].stepProgress = 53;
+  }
 });
 
 const boardPath = resolve(root, "assets/boards/ludo-board-prototype.svg");
