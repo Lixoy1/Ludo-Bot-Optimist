@@ -44,9 +44,14 @@ function publicRoom(room) {
 export class RoomService {
   #rooms = new Map();
   #now;
+  #rollDie;
 
-  constructor({ now = () => Date.now() } = {}) {
+  constructor({ now = () => Date.now(), rollDie = () => randomInt(1, 7) } = {}) {
+    if (typeof now !== "function" || typeof rollDie !== "function") {
+      throw new TypeError("Room service clock and die roller must be functions.");
+    }
     this.#now = now;
+    this.#rollDie = rollDie;
   }
 
   createRoom({ username, characterId = "optimist" }) {
@@ -120,7 +125,7 @@ export class RoomService {
     const room = this.#playingRoom(roomId);
     this.#authorize(room, playerId, secret);
     if (room.state.currentPlayer !== playerId) throw new Error("It is not your turn.");
-    const dice = randomInt(1, 7);
+    const dice = this.#rollDie();
     const result = rollClassicDice(room.state, playerId, dice);
     room.state = result.state;
     return {
