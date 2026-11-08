@@ -194,7 +194,6 @@ function handleTokenClick(tokenId) {
   const result = applyClassicMove(before, before.currentPlayer, tokenId);
   state = result.state;
   legalTokenIds = [];
-  selectedTokenId = tokenId;
   const plan = createTurnAnimationPlan(before, state);
   isAnimating = true;
   renderControls();
@@ -208,8 +207,7 @@ function handleTokenClick(tokenId) {
       animationFrame = requestAnimationFrame(tick);
     } else {
       isAnimating = false;
-      selectedTokenId = null;
-      render();
+          render();
       if (state.phase === "finished") {
         setMessage("Победа! " + (playerFor(state.winner)?.username ?? "") + " завершил все четыре фишки.");
       } else if (result.bonusRoll) {
@@ -229,8 +227,6 @@ function startNewGame() {
   isAnimating = false;
   state = createClassicState(PLAYERS);
   legalTokenIds = [];
-  selectedTokenId = null;
-  lastDice = null;
   diceFace.textContent = "—";
   diceCaption.textContent = "Ожидает броска";
   setMessage("Новая партия. Для выхода из базы нужна шестёрка.");
