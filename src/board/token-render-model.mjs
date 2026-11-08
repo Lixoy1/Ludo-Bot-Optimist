@@ -10,7 +10,7 @@ import { getCharacter } from "../characters.mjs";
 import { assertClassicState, globalTrackIndex } from "../engine/classic-engine.mjs";
 
 export const SPRITE_BASELINE_RATIO = 1;
-const SPRITE_VERTICAL_OFFSET = 0.12;
+const CELL_INSET_RATIO = 0.03;
 const FINISH_TOKEN_SCALE = 0.28;
 
 function imageBox(anchorX, anchorY, size) {
@@ -20,6 +20,37 @@ function imageBox(anchorX, anchorY, size) {
     imageX: anchorX - size.width / 2,
     imageY: anchorY - size.height * SPRITE_BASELINE_RATIO,
     baselineRatio: SPRITE_BASELINE_RATIO
+  };
+}
+
+function createRenderItem(item, options = {}) {
+  const scale = options.scale ?? 1;
+  const slotPitch = BOARD.grid.cellPitch * scale;
+  const size = getPawnDimensions(item.character, BOARD.grid.cellPitch, scale);
+  const anchorX = item.x + (options.offsetX ?? 0);
+  const anchorY = item.y + (options.offsetY ?? 0) + slotPitch * (0.5 - CELL_INSET_RATIO);
+
+  return {
+    tokenId: item.token.id,
+    owner: item.player.id,
+    color: item.token.color,
+    characterId: item.player.characterId,
+    src: item.character.src,
+    zone: item.zone,
+    progress: item.token.stepProgress,
+    baseSlot: item.zone === "base" ? item.token.index : undefined,
+    finishSlot: item.zone === "finished" ? item.token.index : undefined,
+    trackIndex: item.zone === "track" ? item.trackIndex : undefined,
+    homeIndex: item.zone === "home" ? item.homeIndex : undefined,
+    cellKey: item.cellKey,
+    // Logical location stays at the center of the original game cell/slot.
+    x: item.x + (options.offsetX ?? 0),
+    y: item.y + (options.offsetY ?? 0),
+    width: size.width,
+    height: size.height,
+    scale,
+    slotPitch,
+    ...imageBox(anchorX, anchorY, size)
   };
 }
 
@@ -73,53 +104,21 @@ export function buildTokenRenderModel(state) {
   }
 
   const renderItems = fixed.map((item) => {
-    const scale = item.zone === "finished" ? FINISH_TOKEN_SCALE : 1;
-    const size = getPawnDimensions(item.character, BOARD.grid.cellPitch, scale);
-    return {
-      tokenId: item.token.id,
-      owner: item.player.id,
-      color: item.token.color,
-      characterId: item.player.characterId,
-      src: item.character.src,
-      zone: item.zone,
-      progress: item.token.stepProgress,
-      baseSlot: item.zone === "base" ? item.token.index : undefined,
-      finishSlot: item.zone === "finished" ? item.token.index : undefined,
-      cellKey: item.cellKey,
-      x: item.x,
-      y: item.y,
-      width: size.width,
-      height: size.height,
-      scale,
-      ...imageBox(item.x, item.y + BOARD.grid.cellPitch * SPRITE_VERTICAL_OFFSET, size)
-    };
+    if (item.zone === "finished") {
+      return createRenderItem(item, { scale: FINISH_TOKEN_SCALE });
+    }
+    return createRenderItem(item);
   });
 
   for (const [cellKey, group] of movableGroups) {
     const layout = getPawnStackLayout(group.length, BOARD.grid.cellPitch);
     group.forEach((item, index) => {
-      const offset = layout[index];
-      const size = getPawnDimensions(item.character, BOARD.grid.cellPitch, offset.scale);
-      const anchorX = item.x + offset.x;
-      const anchorY = item.y + offset.y + BOARD.grid.cellPitch * SPRITE_VERTICAL_OFFSET;
-      renderItems.push({
-        tokenId: item.token.id,
-        owner: item.player.id,
-        color: item.token.color,
-        characterId: item.player.characterId,
-        src: item.character.src,
-        zone: item.zone,
-        progress: item.token.stepProgress,
-        trackIndex: item.zone === "track" ? item.trackIndex : undefined,
-        homeIndex: item.zone === "home" ? item.homeIndex : undefined,
-        cellKey,
-        x: item.x + offset.x,
-        y: item.y + offset.y,
-        width: size.width,
-        height: size.height,
-        scale: offset.scale,
-        ...imageBox(anchorX, anchorY, size)
-      });
+      const slot = layout[index];
+      renderItems.push(createRenderItem(item, {
+        scale: slot.scale,
+        offsetX: slot.x,
+        offsetY: slot.y
+      }));
     });
   }
 
