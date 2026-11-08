@@ -18,18 +18,19 @@ jobs:
       - name: Generate canonical board artifacts
         run: npm run build
       - name: Check generated board artifacts are committed
-        run: git diff --exit-code -- Coordinates_Map.json docs/CLASSIC-BOARD-TOKEN-PREVIEW.svg
+        run: git diff --exit-code -- Coordinates_Map.json
       - name: Install SVG rasterizer
         run: npm install --no-save --package-lock=false sharp
       - name: Render visual board preview as PNG
         run: npm run build:preview:png
-      - name: Commit generated PNG preview
+      - name: Commit generated visual previews
+        if: github.event_name == 'push'
         run: |
           git config user.name "github-actions[bot]"
           git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
-          git add docs/CLASSIC-BOARD-TOKEN-PREVIEW.png
+          git add docs/CLASSIC-BOARD-TOKEN-PREVIEW.svg docs/CLASSIC-BOARD-TOKEN-PREVIEW.png
           if ! git diff --cached --quiet; then
-            git commit -m "Generate raster classic board preview"
+            git commit -m "Generate updated classic board visual previews"
             git push
           fi
       - name: Run geometry and pawn tests
