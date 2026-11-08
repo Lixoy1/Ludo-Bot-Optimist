@@ -293,7 +293,7 @@ export function samplePawnMoveAnimation(animation, elapsedMs) {
   if (!Number.isFinite(elapsedMs)) throw new TypeError("elapsedMs must be finite.");
   const time = Math.max(0, elapsedMs);
 
-  if (time >= animation.durationMs) {
+  if (time >= animation.durationMs - TIME_EPSILON_MS) {
     const final = animation.segments.at(-1);
     return {
       ...sampleSprite(final.from, final.to, 1, final.arcHeight),
@@ -324,14 +324,15 @@ export function samplePawnCaptureAnimation(animation, elapsedMs) {
   }
   if (!Number.isFinite(elapsedMs)) throw new TypeError("elapsedMs must be finite.");
   const time = Math.max(0, elapsedMs);
-  const t = Math.max(0, Math.min(1, time / animation.durationMs));
+  const done = time >= animation.durationMs - TIME_EPSILON_MS;
+  const t = done ? 1 : Math.max(0, Math.min(1, time / animation.durationMs));
   const sprite = sampleSprite(animation.from, animation.to, t, animation.arcHeight);
   const fade = 1 - 0.12 * Math.sin(Math.PI * t);
   return {
     ...sprite,
     opacity: fade,
     rotationDegrees: 8 * Math.sin(Math.PI * t),
-    done: time >= animation.durationMs - TIME_EPSILON_MS,
+    done,
     segmentProgress: t,
     elapsedMs: Math.min(time, animation.durationMs)
   };
