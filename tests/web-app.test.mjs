@@ -39,7 +39,7 @@ test("the development server serves the app, browser modules and character asset
   for (const [path, mime, marker] of checks) {
     const response = await fetch(origin + path);
     assert.equal(response.status, 200, path);
-    assert.match(response.headers.get("content-type"), new RegExp(mime.replace("/", "\\/")));
+    assert.ok(response.headers.get("content-type").startsWith(mime), path);
     if (marker) assert.ok((await response.text()).includes(marker), path);
     else assert.ok(Number(response.headers.get("content-length")) > 1000, path);
   }
