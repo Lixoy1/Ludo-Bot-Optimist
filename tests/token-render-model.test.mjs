@@ -41,7 +41,7 @@ test("an engine move is converted into the exact board track cell center", () =>
   const expected = getTrackCell(0);
   assert.equal(pawn.zone, "track");
   assert.equal(pawn.cellKey, "track:0");
-  assert.equal(pawn.trackIndex, undefined);
+  assert.equal(pawn.trackIndex, 0);
   assert.deepEqual({ x: pawn.x, y: pawn.y }, { x: expected.x, y: expected.y });
 });
 
