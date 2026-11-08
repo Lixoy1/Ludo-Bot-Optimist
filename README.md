@@ -58,3 +58,10 @@ npm run dev
 Then open `http://localhost:4173` in a browser. Build a deployable static site with `npm run build:web`; GitHub Pages deployment is configured in `.github/workflows/pages.yml`. The prototype uses the real Classic rules engine and the same movement/capture animation pipeline as the game foundation. Roll the die, tap a highlighted pawn to move it, and use **Новая партия** to reset.
 
 The current browser demo runs locally or can be published to GitHub Pages after enabling Pages once in the repository settings. Dice are generated in the browser for testing; multiplayer rooms, server-authoritative random rolls, reconnect persistence, Telegram WebApp integration, chat and voice are not implemented yet.
+
+
+## Backend API foundation
+
+The first authenticated room API is in `apps/backend/`. Run it with `npm run start:api` (default port 4174). It creates and joins 2–4 player rooms, starts games as the host, generates dice on the server, and validates moves with the Classic engine. See [docs/BACKEND-ROOM-API.md](docs/BACKEND-ROOM-API.md) for endpoints and current limitations.
+
+**Important:** room storage is still in memory. Rooms do not survive a backend restart; durable storage, WebSocket broadcasts, reconnects and Telegram authentication are not yet implemented.
