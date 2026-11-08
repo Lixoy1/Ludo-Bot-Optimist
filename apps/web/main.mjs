@@ -83,13 +83,17 @@ function renderPlayers() {
   }).join("");
 }
 
+function assetUrl(path) {
+  return new URL(String(path).replace(/^\\/+/, ""), document.baseURI).href;
+}
+
 function imageMarkup(item, { animated = false, legal = false } = {}) {
   const width = Number(item.width);
   const height = Number(item.height);
   const imageX = Number(item.imageX);
   const imageY = Number(item.imageY);
   return `<image
-    href="${escapeXml(item.src)}"
+    href="${escapeXml(assetUrl(item.src))}"
     x="${imageX.toFixed(3)}"
     y="${imageY.toFixed(3)}"
     width="${width.toFixed(3)}"
