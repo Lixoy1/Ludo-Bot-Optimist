@@ -20,7 +20,11 @@ const state = createClassicState(roster);
 });
 
 const boardPath = resolve(root, "assets/boards/ludo-board-prototype.svg");
-const board = await sharp(boardPath).resize(1000, 1000).png().toBuffer();
+const boardRaster = await sharp(boardPath).resize(1000, 1000).png().toBuffer();
+const board = await sharp({ create: { width: 1000, height: 1000, channels: 4, background: "#ffffff" } })
+  .composite([{ input: boardRaster, left: 0, top: 0 }])
+  .png()
+  .toBuffer();
 const pawns = buildTokenRenderModel(state).sort((a, b) =>
   a.anchorY - b.anchorY || a.anchorX - b.anchorX || a.tokenId.localeCompare(b.tokenId)
 );
