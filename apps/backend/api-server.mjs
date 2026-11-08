@@ -41,6 +41,7 @@ function credentials(request) {
 
 function statusFor(error) {
   if (error.status) return error.status;
+  if (error.code === "ROOM_CONFLICT") return 409;
   if (/authentication failed/.test(error.message)) return 401;
   if (/not found or expired/.test(error.message)) return 404;
   if (/not your turn|Only the room host|full|not accepting|already started|At least two|not started|There is no pending move|Illegal move|cannot be rolled/.test(error.message)) return 409;
