@@ -37,7 +37,11 @@ export function createDevServer(root = ROOT) {
       return;
     }
 
-    if (pathname.includes("\\0") || pathname.includes("\\")) {
+    if (
+      pathname.includes(String.fromCharCode(0)) ||
+      pathname.includes("\\") ||
+      pathname.split("/").some((segment) => segment === ".." || segment === ".")
+    ) {
       response.writeHead(400, { "content-type": "text/plain; charset=utf-8" });
       response.end("Invalid path");
       return;
