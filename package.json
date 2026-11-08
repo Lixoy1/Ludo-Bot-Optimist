@@ -6,7 +6,7 @@
   "description": "Clean Telegram Ludo bot and Mini App foundation",
   "scripts": {
     "test": "node --test",
-    "check": "node --check src/board/classic-geometry.mjs && node --check src/board/coordinates.mjs && node --check src/board/pawn-layout.mjs && node --check src/engine/classic-engine.mjs && node --check src/board/token-render-model.mjs && node --check src/board/preview.mjs && node --check scripts/export-board-preview.mjs && node --check scripts/export-board-preview-png.mjs && node --check src/board/movement-animation.mjs && node --check apps/web/main.mjs && node --check scripts/dev-server.mjs && node --check scripts/build-web.mjs && node --check scripts/browser-smoke.mjs && node --check apps/backend/room-service.mjs && node --check apps/backend/api-server.mjs && node --check apps/backend/server.mjs",
+    "check": "node --check src/board/classic-geometry.mjs && node --check src/board/coordinates.mjs && node --check src/board/pawn-layout.mjs && node --check src/engine/classic-engine.mjs && node --check src/board/token-render-model.mjs && node --check src/board/preview.mjs && node --check scripts/export-board-preview.mjs && node --check scripts/export-board-preview-png.mjs && node --check src/board/movement-animation.mjs && node --check apps/web/main.mjs && node --check scripts/dev-server.mjs && node --check scripts/build-web.mjs && node --check scripts/browser-smoke.mjs && node --check apps/backend/room-service.mjs && node --check apps/backend/api-server.mjs && node --check apps/backend/server.mjs && node --check apps/backend/room-store.mjs && node --check apps/backend/postgres-room-store.mjs",
     "build:coordinates": "node scripts/export-coordinates.mjs",
     "build": "npm run build:coordinates && npm run build:preview",
     "build:preview": "node scripts/export-board-preview.mjs",
@@ -14,9 +14,13 @@
     "dev": "node scripts/dev-server.mjs",
     "start": "node scripts/dev-server.mjs",
     "build:web": "node scripts/build-web.mjs",
-    "start:api": "node apps/backend/server.mjs"
+    "start:api": "node apps/backend/server.mjs",
+    "db:init": "node scripts/init-database.mjs"
   },
   "engines": {
     "node": ">=22"
+  },
+  "dependencies": {
+    "pg": "^8.16.3"
   }
 }
