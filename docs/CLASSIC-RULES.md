@@ -13,8 +13,8 @@ The implementation in `src/engine/classic-engine.mjs` is a pure, deterministic r
 ## Movement
 
 - A token leaves base only on a six and lands on its own start cell.
-- Outer-track progress is `0..50`.
-- Home-lane progress is `51..55`.
+- Each player's route uses progress `0..50` on the shared 52-cell outer loop. That is 51 outer-track steps for each color, beginning at its configured start index.
+- Home-lane progress is `51..55`, ordered from the outer-track entry toward the finish.
 - Progress `56` means finished.
 - A move must finish on an exact roll. A roll that would pass progress 56 is not legal.
 - The engine returns every legal token ID; the client cannot choose a destination cell.
