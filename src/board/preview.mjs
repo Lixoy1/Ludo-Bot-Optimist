@@ -32,8 +32,15 @@ export function buildClassicBoardPreviewSvg() {
   const sampleTrackProgress = [3, 9, 15, 21];
   for (let index = 0; index < DEMO_ROSTER.length; index += 1) {
     const player = DEMO_ROSTER[index];
-    state.tokens[player.id + ":0"].stepProgress = sampleTrackProgress[index];
-    state.tokens[player.id + ":1"].stepProgress = 53;
+    if (index === 0) {
+      // Four identical pawns share one outer cell to demonstrate the 2x2 mini-cell layout.
+      for (let tokenIndex = 0; tokenIndex < 4; tokenIndex += 1) {
+        state.tokens[player.id + ":" + tokenIndex].stepProgress = 4;
+      }
+    } else {
+      state.tokens[player.id + ":0"].stepProgress = sampleTrackProgress[index];
+      state.tokens[player.id + ":1"].stepProgress = 53;
+    }
   }
 
   const pawns = buildTokenRenderModel(state).sort((a, b) =>
