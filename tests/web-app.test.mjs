@@ -1,6 +1,7 @@
 import test from "node:test";
 import assert from "node:assert/strict";
 import { readFile } from "node:fs/promises";
+import { request } from "node:http";
 import { createDevServer } from "../scripts/dev-server.mjs";
 
 test("the browser app loads a responsive board and the interactive game module", async () => {
@@ -46,6 +47,18 @@ test("the development server serves the app, browser modules and character asset
 
   const missing = await fetch(origin + "/not-found");
   assert.equal(missing.status, 404);
-  const denied = await fetch(origin + "/%2e%2e/package.json");
-  assert.equal(denied.status, 400);
+  const deniedStatus = await new Promise((resolve, reject) => {
+    const req = request({
+      hostname: "127.0.0.1",
+      port: address.port,
+      method: "GET",
+      path: "/%2e%2e/package.json"
+    }, (response) => {
+      response.resume();
+      response.on("end", () => resolve(response.statusCode));
+    });
+    req.on("error", reject);
+    req.end();
+  });
+  assert.equal(deniedStatus, 400);
 });
