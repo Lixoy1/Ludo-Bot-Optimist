@@ -77,3 +77,19 @@ test("room survives RoomService recreation when the same persistent store is reu
   const restored = await secondProcess.getRoom(host.room.id, host.playerId, host.playerSecret);
   assert.equal(restored.players[0].username, "Persistent host");
 });
+
+test("concurrent actions cannot overwrite a newer room revision", async () => {
+  const store = new MemoryRoomStore();
+  const service = new RoomService({ store, rollDie: () => 2 });
+  const host = await service.createRoom({ username: "Host" });
+  await service.joinRoom(host.room.id, { username: "Guest" });
+  await service.startRoom(host.room.id, host.playerId, host.playerSecret);
+  const outcomes = await Promise.allSettled([
+    service.roll(host.room.id, host.playerId, host.playerSecret),
+    service.roll(host.room.id, host.playerId, host.playerSecret)
+  ]);
+  assert.equal(outcomes.filter(x => x.status === "fulfilled").length, 1);
+  assert.equal(outcomes.filter(x => x.status === "rejected" && x.reason.code === "ROOM_CONFLICT").length, 1);
+  const current = await service.getRoom(host.room.id, host.playerId, host.playerSecret);
+  assert.equal(current.state.revision, 1);
+});
