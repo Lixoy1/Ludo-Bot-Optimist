@@ -1,0 +1,188 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Geometry-only preview. Temporary source board art; not the final OPTIMIST skin. -->
+<svg xmlns="http://www.w3.org/2000/svg"
+     xmlns:xlink="http://www.w3.org/1999/xlink"
+     width="1000" height="1000" viewBox="0 0 1000 1000">
+  <title>OPTIMIST LUDO — classic board token placement preview</title>
+  <image href="../assets/boards/ludo-board-prototype.svg"
+         x="0" y="0" width="1000" height="1000"
+         preserveAspectRatio="xMidYMid meet"/>
+  <g id="pawns">
+    <image
+      href="../assets/characters/lilya-detective.webp"
+      x="163.993"
+      y="202.779"
+      width="49.690"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-green:2"
+      data-zone="base">
+      <title>lilya-detective green pawn demo-green:2</title>
+    </image>
+    <image
+      href="../assets/characters/lilya-detective.webp"
+      x="226.082"
+      y="202.779"
+      width="49.690"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-green:3"
+      data-zone="base">
+      <title>lilya-detective green pawn demo-green:3</title>
+    </image>
+    <image
+      href="../assets/characters/optimist.webp"
+      x="475.981"
+      y="202.779"
+      width="46.599"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-yellow:1"
+      data-zone="home">
+      <title>optimist yellow pawn demo-yellow:1</title>
+    </image>
+    <image
+      href="../assets/characters/optimist.webp"
+      x="724.335"
+      y="202.779"
+      width="46.599"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-yellow:2"
+      data-zone="base">
+      <title>optimist yellow pawn demo-yellow:2</title>
+    </image>
+    <image
+      href="../assets/characters/optimist.webp"
+      x="786.424"
+      y="202.779"
+      width="46.599"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-yellow:3"
+      data-zone="base">
+      <title>optimist yellow pawn demo-yellow:3</title>
+    </image>
+    <image
+      href="../assets/characters/optimist.webp"
+      x="538.070"
+      y="264.867"
+      width="46.599"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-yellow:0"
+      data-zone="track">
+      <title>optimist yellow pawn demo-yellow:0</title>
+    </image>
+    <image
+      href="../assets/characters/husky.webp"
+      x="232.396"
+      y="389.044"
+      width="37.062"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-red:0"
+      data-zone="track">
+      <title>husky red pawn demo-red:0</title>
+    </image>
+    <image
+      href="../assets/characters/lilya-detective.webp"
+      x="784.878"
+      y="389.044"
+      width="49.690"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-green:0"
+      data-zone="track">
+      <title>lilya-detective green pawn demo-green:0</title>
+    </image>
+    <image
+      href="../assets/characters/lilya-detective.webp"
+      x="226.082"
+      y="451.133"
+      width="49.690"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-green:1"
+      data-zone="home">
+      <title>lilya-detective green pawn demo-green:1</title>
+    </image>
+    <image
+      href="../assets/characters/poison.webp"
+      x="725.921"
+      y="451.133"
+      width="43.428"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-blue:1"
+      data-zone="home">
+      <title>poison blue pawn demo-blue:1</title>
+    </image>
+    <image
+      href="../assets/characters/husky.webp"
+      x="480.750"
+      y="699.487"
+      width="37.062"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-red:1"
+      data-zone="home">
+      <title>husky red pawn demo-red:1</title>
+    </image>
+    <image
+      href="../assets/characters/husky.webp"
+      x="170.307"
+      y="761.575"
+      width="37.062"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-red:2"
+      data-zone="base">
+      <title>husky red pawn demo-red:2</title>
+    </image>
+    <image
+      href="../assets/characters/husky.webp"
+      x="232.396"
+      y="761.575"
+      width="37.062"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-red:3"
+      data-zone="base">
+      <title>husky red pawn demo-red:3</title>
+    </image>
+    <image
+      href="../assets/characters/poison.webp"
+      x="725.921"
+      y="761.575"
+      width="43.428"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-blue:2"
+      data-zone="base">
+      <title>poison blue pawn demo-blue:2</title>
+    </image>
+    <image
+      href="../assets/characters/poison.webp"
+      x="788.009"
+      y="761.575"
+      width="43.428"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-blue:3"
+      data-zone="base">
+      <title>poison blue pawn demo-blue:3</title>
+    </image>
+    <image
+      href="../assets/characters/poison.webp"
+      x="539.655"
+      y="823.664"
+      width="43.428"
+      height="52.154"
+      preserveAspectRatio="xMidYMax meet"
+      data-token-id="demo-blue:0"
+      data-zone="track">
+      <title>poison blue pawn demo-blue:0</title>
+    </image>
+  </g>
+</svg>
