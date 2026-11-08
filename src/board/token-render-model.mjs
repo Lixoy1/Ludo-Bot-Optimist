@@ -9,7 +9,8 @@ import { getPawnDimensions, getPawnStackLayout } from "./pawn-layout.mjs";
 import { getCharacter } from "../characters.mjs";
 import { assertClassicState, globalTrackIndex } from "../engine/classic-engine.mjs";
 
-export const SPRITE_BASELINE_RATIO = 1;\nconst SPRITE_VERTICAL_OFFSET = 0.12;
+export const SPRITE_BASELINE_RATIO = 1;
+const SPRITE_VERTICAL_OFFSET = 0.12;
 const FINISH_TOKEN_SCALE = 0.28;
 
 function imageBox(anchorX, anchorY, size) {
