@@ -18,5 +18,5 @@ test("committed classic board preview is the generated 16-pawn geometry snapshot
   assert.match(stored, /data-zone="base"/);
   assert.match(stored, /data-zone="track"/);
   assert.match(stored, /data-zone="home"/);
-  assert.match(stored, /\.webp/);
+  assert.match(stored, /data:image\\/webp;base64,/);
 });
