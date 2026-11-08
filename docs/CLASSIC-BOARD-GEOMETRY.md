@@ -39,3 +39,9 @@ The server progress model is:
 - 56: finished.
 
 `tokenMovementPath()` returns every intermediate cell, including the destination. The client must animate through the returned sequence in order. It must never lerp directly from the old position to the final position across multiple cells.
+
+## Geometry preview
+
+Open [CLASSIC-BOARD-TOKEN-PREVIEW.svg](./CLASSIC-BOARD-TOKEN-PREVIEW.svg) to inspect the board with the 12 demo pawns placed over the source artwork. The preview deliberately stages one token per player on the outer route, one in the home lane, and two in the base. It is a geometry and asset-placement check, not a live game state and not the final OPTIMIST visual skin.
+
+Regenerate it with `npm run build:preview`. The normal `npm run build` regenerates both the canonical coordinate JSON and this SVG preview.
