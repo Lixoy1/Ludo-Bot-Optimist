@@ -10,7 +10,9 @@ test("committed classic board preview is the generated 16-pawn geometry snapshot
     "utf8"
   );
   assert.equal(stored, expected);
-  assert.match(stored, /ludo-board-prototype\.svg/);
+  assert.ok(stored.includes("data:image/svg+xml;base64,"));
+  assert.ok(stored.includes("data:image/webp;base64,"));
+  assert.ok(!stored.includes("../assets/"));
   assert.equal((stored.match(/<image/g) || []).length, 17);
   assert.equal((stored.match(/data-token-id=/g) || []).length, 16);
   assert.match(stored, /data-zone="base"/);
