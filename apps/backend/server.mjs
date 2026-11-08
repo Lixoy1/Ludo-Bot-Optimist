@@ -1,3 +1,4 @@
+import { attachRealtime } from "./realtime.mjs";
 import { createApiServer } from "./api-server.mjs";
 import { RoomService } from "./room-service.mjs";
 import { PostgresRoomStore } from "./postgres-room-store.mjs";
@@ -9,5 +10,5 @@ else if(process.env.NODE_ENV==="production")throw new Error("DATABASE_URL is req
 else{store=new MemoryRoomStore();process.stdout.write("WARNING: in-memory rooms; set DATABASE_URL for persistence.\n");}
 const server=createApiServer({service:new RoomService({store})});
 server.listen(port,host,()=>process.stdout.write("OPTIMIST LUDO API: http://"+host+":"+port+"\n"));
-async function shutdown(signal){process.stdout.write(signal+": shutting down.\n");server.close(async()=>{await store.close();process.exit(0);});setTimeout(()=>process.exit(1),10000).unref();}
+async function shutdown(signal){process.stdout.write(signal+": shutting down.\n");server.close(async()=>{realtime.close();await store.close();process.exit(0);});setTimeout(()=>process.exit(1),10000).unref();}
 process.on("SIGINT",()=>shutdown("SIGINT"));process.on("SIGTERM",()=>shutdown("SIGTERM"));
