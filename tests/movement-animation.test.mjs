@@ -177,3 +177,69 @@ test("animation constructors reject invalid durations and unrelated captured tok
     /return an outer-track pawn/
   );
 });
+
+test("a full 56-step animation route is generated for every player color", () => {
+  const players = [
+    { id: "yellow", color: "yellow", characterId: "optimist" },
+    { id: "blue", color: "blue", characterId: "poison" },
+    { id: "red", color: "red", characterId: "husky" },
+    { id: "green", color: "green", characterId: "lilya-detective" }
+  ];
+
+  for (const player of players) {
+    const before = createClassicState(players);
+    before.tokens[player.id + ":0"].stepProgress = 0;
+    const after = structuredClone(before);
+    after.tokens[player.id + ":0"].stepProgress = 56;
+    const animation = createPawnMoveAnimation(before, after, player.id + ":0");
+
+    assert.equal(animation.segments.length, 56, player.color + " segment count");
+    assert.equal(animation.segments[0].waypoint.progress, 1);
+    assert.equal(animation.segments[50].waypoint.zone, "home");
+    assert.equal(animation.segments[55].waypoint.zone, "finished");
+    assert.equal(samplePawnMoveAnimation(animation, animation.durationMs).done, true);
+  }
+});
+
+test("two captured opponents return separately and are unsuppressed as each flight completes", () => {
+  const threePlayers = [
+    { id: "yellow", color: "yellow", characterId: "optimist" },
+    { id: "blue", color: "blue", characterId: "poison" },
+    { id: "red", color: "red", characterId: "husky" }
+  ];
+  const before = createClassicState(threePlayers);
+  before.tokens["yellow:0"].stepProgress = 1;
+  before.tokens["blue:0"].stepProgress = 42;
+  before.tokens["red:0"].stepProgress = 29;
+  before.currentPlayer = "yellow";
+  const roll = rollClassicDice(before, "yellow", 2);
+  const after = applyClassicMove(roll.state, "yellow", "yellow:0").state;
+
+  assert.deepEqual(after.lastAction.captured, ["blue:0", "red:0"]);
+  const plan = createTurnAnimationPlan(before, after, {
+    stepDurationMs: 100,
+    captureDurationMs: 300,
+    captureStaggerMs: 80
+  });
+
+  assert.deepEqual(plan.captures.map((capture) => capture.delayMs), [
+    plan.mover.durationMs,
+    plan.mover.durationMs + 80
+  ]);
+
+  const firstFlightFinished = sampleTurnAnimationPlan(plan, plan.mover.durationMs + 300);
+  assert.deepEqual(firstFlightFinished.suppressedTokenIds, ["red:0"]);
+  assert.equal(firstFlightFinished.captures[0].active, false);
+  assert.equal(firstFlightFinished.captures[1].active, true);
+
+  const completed = sampleTurnAnimationPlan(plan, plan.durationMs);
+  assert.deepEqual(completed.suppressedTokenIds, []);
+  assert.equal(completed.done, true);
+});
+
+test("turn animation plan rejects a MOVE action that does not match its supplied states", () => {
+  const before = createClassicState(roster);
+  const after = applyMove(before, "p1", "p1:0", 6);
+  after.lastAction.fromProgress = 12;
+  assert.throws(() => createTurnAnimationPlan(before, after), /does not match/);
+});
