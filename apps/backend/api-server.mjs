@@ -66,7 +66,7 @@ export function createApiServer({ service = new RoomService() } = {}) {
     try {
       if (request.method === "POST" && url.pathname === "/api/rooms") {
         const body = await readJson(request);
-        const result = service.createRoom(body);
+        const result = await service.createRoom(body);
         send(response, 201, result);
         return;
       }
@@ -81,7 +81,7 @@ export function createApiServer({ service = new RoomService() } = {}) {
       const auth = credentials(request);
 
       if (request.method === "GET" && !action) {
-        send(response, 200, service.getRoom(roomId, auth.playerId, auth.secret));
+        send(response, 200, await service.getRoom(roomId, auth.playerId, auth.secret));
         return;
       }
       if (request.method !== "POST" || !action) {
@@ -90,15 +90,15 @@ export function createApiServer({ service = new RoomService() } = {}) {
       }
 
       if (action === "join") {
-        send(response, 200, service.joinRoom(roomId, await readJson(request)));
+        send(response, 200, await service.joinRoom(roomId, await readJson(request)));
       } else if (action === "start") {
-        send(response, 200, service.startRoom(roomId, auth.playerId, auth.secret));
+        send(response, 200, await service.startRoom(roomId, auth.playerId, auth.secret));
       } else if (action === "roll") {
-        send(response, 200, service.roll(roomId, auth.playerId, auth.secret));
+        send(response, 200, await service.roll(roomId, auth.playerId, auth.secret));
       } else if (action === "move") {
         const body = await readJson(request);
         if (typeof body.tokenId !== "string") throw Object.assign(new Error("tokenId is required."), { status: 400 });
-        send(response, 200, service.move(roomId, auth.playerId, auth.secret, body.tokenId));
+        send(response, 200, await service.move(roomId, auth.playerId, auth.secret, body.tokenId));
       }
     } catch (error) {
       send(response, statusFor(error), { error: error.message || "Request failed." });
