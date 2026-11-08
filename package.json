@@ -1,1 +1,14 @@
-{"name":"optimist-ludo-bot","version":"0.1.0","private":true,"type":"module","description":"Clean Telegram Ludo bot and Mini App foundation","scripts":{"test":"node --test","check":"node --check src/board/classic-geometry.mjs && node --check src/board/coordinates.mjs && node --check src/board/pawn-layout.mjs"},"engines":{"node":">=22"}}
+{
+  "name": "optimist-ludo-bot",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Clean Telegram Ludo bot and Mini App foundation",
+  "scripts": {
+    "test": "node --test",
+    "check": "node --check src/board/classic-geometry.mjs && node --check src/board/coordinates.mjs && node --check src/board/pawn-layout.mjs",
+    "build:coordinates": "node scripts/export-coordinates.mjs",
+    "build": "npm run build:coordinates"
+  },
+  "engines": { "node": ">=22" }
+}
