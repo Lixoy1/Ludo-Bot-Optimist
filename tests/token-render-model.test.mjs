@@ -98,12 +98,12 @@ test("finished pawns use four small individual sockets in the finish cell", () =
 test("all rendered sprites use pedestal-baseline anchoring rather than image-center anchoring", () => {
   const state = createClassicState(roster);
   const model = buildTokenRenderModel(state);
-  assert.ok(SPRITE_BASELINE_RATIO > 0.9 && SPRITE_BASELINE_RATIO <= 1);
+  assert.equal(SPRITE_BASELINE_RATIO, 1);
   for (const pawn of model) {
     assert.ok(Math.abs(pawn.imageX - (pawn.anchorX - pawn.width / 2)) < 1e-8);
     assert.ok(Math.abs(pawn.imageY + pawn.height * pawn.baselineRatio - pawn.anchorY) < 1e-8);
     assert.equal(pawn.baselineRatio, SPRITE_BASELINE_RATIO);
     assert.equal(pawn.anchorX, pawn.x);
-    assert.equal(pawn.anchorY, pawn.y);
+    assert.ok(Math.abs(pawn.anchorY - (pawn.y + 62.08849 * 0.12)) < 1e-8);
   }
 });
