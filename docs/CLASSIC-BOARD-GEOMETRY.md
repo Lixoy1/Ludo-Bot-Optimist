@@ -42,6 +42,6 @@ The server progress model is:
 
 ## Geometry preview
 
-Open [CLASSIC-BOARD-TOKEN-PREVIEW.svg](./CLASSIC-BOARD-TOKEN-PREVIEW.svg) to inspect the board with the 12 demo pawns placed over the source artwork. The preview deliberately stages one token per player on the outer route, one in the home lane, and two in the base. It is a geometry and asset-placement check, not a live game state and not the final OPTIMIST visual skin.
+Open [CLASSIC-BOARD-TOKEN-PREVIEW.png](./CLASSIC-BOARD-TOKEN-PREVIEW.png) to inspect the raster board preview with 16 demo pawns placed over the source artwork. This PNG is the reliable visual review file; the SVG is retained only as a generated technical artifact. The preview deliberately stages one token per player on the outer route, one in the home lane, and two in the base. It is a geometry and asset-placement check, not a live game state and not the final OPTIMIST visual skin.
 
-Regenerate it with `npm run build:preview`. The normal `npm run build` regenerates both the canonical coordinate JSON and this SVG preview.
+Regenerate the SVG with `npm run build:preview` and the PNG with `npm run build:preview:png` (requires `sharp`). CI publishes the PNG preview automatically. The normal `npm run build` regenerates the canonical coordinate JSON and SVG preview.
