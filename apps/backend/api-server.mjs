@@ -1,3 +1,4 @@
+import { issueRealtimeTicket } from "./realtime.mjs";
 import { createServer } from "node:http";
 import { RoomService } from "./room-service.mjs";
 
@@ -72,7 +73,7 @@ export function createApiServer({ service = new RoomService() } = {}) {
         return;
       }
 
-      const match = url.pathname.match(/^\/api\/rooms\/([A-HJ-NP-Z2-9]{6})(?:\/(join|start|roll|move))?$/i);
+      const match = url.pathname.match(/^\/api\/rooms\/([A-HJ-NP-Z2-9]{6})(?:\/(join|start|roll|move|ticket))?$/i);
       if (!match) {
         send(response, 404, { error: "Endpoint not found." });
         return;
@@ -80,6 +81,12 @@ export function createApiServer({ service = new RoomService() } = {}) {
 
       const [, roomId, action] = match;
       const auth = credentials(request);
+
+      if (request.method === "POST" && action === "ticket") {
+        const room = await service.getRoom(roomId, auth.playerId, auth.secret);
+        send(response, 200, { ticket: issueRealtimeTicket(roomId.toUpperCase(), auth.playerId), expiresInSeconds: 30 });
+        return;
+      }
 
       if (request.method === "GET" && !action) {
         send(response, 200, await service.getRoom(roomId, auth.playerId, auth.secret));
