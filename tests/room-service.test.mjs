@@ -45,15 +45,12 @@ test("only the host starts the game; room rejects a fifth player and joins after
 });
 
 test("server validates moves and returns a committed state to the authenticated player", () => {
-  const service = new RoomService();
+  const service = new RoomService({ rollDie: () => 6 });
   const host = service.createRoom({ username: "Host" });
   const guest = service.joinRoom(host.room.id, { username: "Guest" });
   service.startRoom(host.room.id, host.playerId, host.playerSecret);
 
-  let rolled;
-  do {
-    rolled = service.roll(host.room.id, host.playerId, host.playerSecret);
-  } while (rolled.dice !== 6);
+  const rolled = service.roll(host.room.id, host.playerId, host.playerSecret);
 
   const moved = service.move(host.room.id, host.playerId, host.playerSecret, rolled.legalTokenIds[0]);
   assert.equal(moved.room.state.tokens[rolled.legalTokenIds[0]].stepProgress, 0);
