@@ -9,7 +9,7 @@ import { getPawnDimensions, getPawnStackLayout } from "./pawn-layout.mjs";
 import { getCharacter } from "../characters.mjs";
 import { assertClassicState, globalTrackIndex } from "../engine/classic-engine.mjs";
 
-export const SPRITE_BASELINE_RATIO = 0.94;
+export const SPRITE_BASELINE_RATIO = 1;\nconst SPRITE_VERTICAL_OFFSET = 0.12;
 const FINISH_TOKEN_SCALE = 0.28;
 
 function imageBox(anchorX, anchorY, size) {
@@ -90,7 +90,7 @@ export function buildTokenRenderModel(state) {
       width: size.width,
       height: size.height,
       scale,
-      ...imageBox(item.x, item.y, size)
+      ...imageBox(item.x, item.y + BOARD.grid.cellPitch * SPRITE_VERTICAL_OFFSET, size)
     };
   });
 
@@ -100,7 +100,7 @@ export function buildTokenRenderModel(state) {
       const offset = layout[index];
       const size = getPawnDimensions(item.character, BOARD.grid.cellPitch, offset.scale);
       const anchorX = item.x + offset.x;
-      const anchorY = item.y + offset.y;
+      const anchorY = item.y + offset.y + BOARD.grid.cellPitch * SPRITE_VERTICAL_OFFSET;
       renderItems.push({
         tokenId: item.token.id,
         owner: item.player.id,
