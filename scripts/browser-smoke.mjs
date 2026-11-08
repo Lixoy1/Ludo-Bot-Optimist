@@ -56,9 +56,13 @@ try {
 
   const selectedPawn = page.locator("#pawn-layer image.is-legal").first();
   const tokenId = await selectedPawn.getAttribute("data-token-id");
+  const revisionBeforeMove = Number((await page.locator("#game-revision").textContent()).replace(/\\D/g, ""));
   await selectedPawn.click();
 
-  await page.waitForFunction(() => document.querySelector("#game-revision")?.textContent === "ХОД 2", null, { timeout: 5000 });
+  await page.waitForFunction((expected) => {
+    const value = document.querySelector("#game-revision")?.textContent ?? "";
+    return Number(value.replace(/\\D/g, "")) === expected;
+  }, revisionBeforeMove + 1, { timeout: 5000 });
   await page.waitForFunction(() => document.querySelector("#legal-hint")?.textContent.includes("дополнительный бросок") ||
     document.querySelector("#legal-hint")?.textContent.includes("Ход завершён"), null, { timeout: 5000 });
 
