@@ -50,10 +50,10 @@ test("three pawns stacked on one track cell receive separate compact render posi
   for (const id of ["p1:0", "p1:1", "p1:2"]) state.tokens[id].stepProgress = 4;
   const pawns = buildTokenRenderModel(state).filter((item) => item.cellKey === "track:4");
   assert.equal(pawns.length, 3);
-  assert.ok(pawns.every((pawn) => pawn.scale === 0.42));
+  assert.ok(pawns.every((pawn) => pawn.scale === 0.5));
   assert.equal(new Set(pawns.map((pawn) => pawn.x + ":" + pawn.y)).size, 3);
-  assert.ok(pawns.every((pawn) => pawn.width < 62.08849 * 0.42));
-  assert.ok(pawns.every((pawn) => pawn.height < 62.08849 * 0.42));
+  assert.ok(pawns.every((pawn) => pawn.width < 62.08849 * 0.5));
+  assert.ok(pawns.every((pawn) => pawn.height < 62.08849 * 0.5));
 });
 
 test("four pawns in one home cell use a compact non-overlapping stack", () => {
@@ -95,6 +95,31 @@ test("finished pawns use four small individual sockets in the finish cell", () =
   }
 });
 
+test("a solo pawn fills almost the full cell height and stays inside its borders", () => {
+  const state = createClassicState(roster);
+  const model = buildTokenRenderModel(state);
+  for (const pawn of model.filter((item) => item.zone === "base")) {
+    assert.equal(pawn.scale, 1);
+    assert.ok(Math.abs(pawn.height - 62.08849 * 0.94) < 1e-8);
+    assert.ok(Math.abs(pawn.imageY - (pawn.y - 62.08849 * 0.47)) < 1e-8);
+    assert.ok(Math.abs(pawn.anchorY - (pawn.y + 62.08849 * 0.47)) < 1e-8);
+  }
+});
+
+test("four pawns occupy the four quadrants as full-height mini-cell sprites", () => {
+  const state = createClassicState(roster);
+  for (const id of ["p1:0", "p1:1", "p1:2", "p1:3"]) state.tokens[id].stepProgress = 4;
+  const pawns = buildTokenRenderModel(state).filter((item) => item.cellKey === "track:4");
+  const expected = [[-0.25,-0.25],[0.25,-0.25],[-0.25,0.25],[0.25,0.25]];
+  assert.equal(pawns.length, 4);
+  for (let i = 0; i < 4; i++) {
+    assert.equal(pawns[i].scale, 0.5);
+    assert.ok(Math.abs(pawns[i].height - 62.08849 * 0.47) < 1e-8);
+    assert.ok(Math.abs(pawns[i].x - 561.369353 - expected[i][0] * 62.08849) < 1e-8);
+    assert.ok(Math.abs(pawns[i].y - expected[i][1] * 62.08849 - 127.626876) < 1e-8);
+  }
+});
+
 test("all rendered sprites use pedestal-baseline anchoring rather than image-center anchoring", () => {
   const state = createClassicState(roster);
   const model = buildTokenRenderModel(state);
@@ -104,6 +129,6 @@ test("all rendered sprites use pedestal-baseline anchoring rather than image-cen
     assert.ok(Math.abs(pawn.imageY + pawn.height * pawn.baselineRatio - pawn.anchorY) < 1e-8);
     assert.equal(pawn.baselineRatio, SPRITE_BASELINE_RATIO);
     assert.equal(pawn.anchorX, pawn.x);
-    assert.ok(Math.abs(pawn.anchorY - (pawn.y + 62.08849 * 0.12)) < 1e-8);
+    assert.ok(Math.abs(pawn.anchorY - (pawn.y + pawn.slotPitch * 0.47)) < 1e-8);
   }
 });
