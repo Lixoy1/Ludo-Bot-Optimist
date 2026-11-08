@@ -66,6 +66,9 @@ export function buildTokenRenderModel(state) {
     return {
       tokenId: item.token.id,
       owner: item.player.id,
+      progress: item.token.stepProgress,
+      baseSlot: item.zone === "base" ? item.token.index : undefined,
+      finishSlot: item.zone === "finished" ? item.token.index : undefined,
       color: item.token.color,
       characterId: item.player.characterId,
       src: item.character.src,
@@ -87,6 +90,9 @@ export function buildTokenRenderModel(state) {
       renderItems.push({
         tokenId: item.token.id,
         owner: item.player.id,
+        progress: item.token.stepProgress,
+        trackIndex: item.zone === "track" ? item.trackIndex : undefined,
+        homeIndex: item.zone === "home" ? item.homeIndex : undefined,
         color: item.token.color,
         characterId: item.player.characterId,
         src: item.character.src,
