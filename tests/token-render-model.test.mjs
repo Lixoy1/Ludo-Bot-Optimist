@@ -62,7 +62,7 @@ test("four pawns in one home cell use a compact non-overlapping stack", () => {
   const pawns = buildTokenRenderModel(state).filter((item) => item.cellKey === "home:yellow:2");
   const home = getHomeCell("yellow", 2);
   assert.equal(pawns.length, 4);
-  assert.ok(pawns.every((pawn) => pawn.scale === 0.42));
+  assert.ok(pawns.every((pawn) => pawn.scale === 0.5));
   assert.equal(new Set(pawns.map((pawn) => pawn.x + ":" + pawn.y)).size, 4);
   assert.ok(pawns.every((pawn) => Math.abs(pawn.x - home.x) < 62.08849 / 2));
   assert.ok(pawns.every((pawn) => Math.abs(pawn.y - home.y) < 62.08849 / 2));
@@ -111,12 +111,13 @@ test("four pawns occupy the four quadrants as full-height mini-cell sprites", ()
   for (const id of ["p1:0", "p1:1", "p1:2", "p1:3"]) state.tokens[id].stepProgress = 4;
   const pawns = buildTokenRenderModel(state).filter((item) => item.cellKey === "track:4");
   const expected = [[-0.25,-0.25],[0.25,-0.25],[-0.25,0.25],[0.25,0.25]];
+  const center = getTrackCell(4);
   assert.equal(pawns.length, 4);
   for (let i = 0; i < 4; i++) {
     assert.equal(pawns[i].scale, 0.5);
     assert.ok(Math.abs(pawns[i].height - 62.08849 * 0.47) < 1e-8);
-    assert.ok(Math.abs(pawns[i].x - 561.369353 - expected[i][0] * 62.08849) < 1e-8);
-    assert.ok(Math.abs(pawns[i].y - expected[i][1] * 62.08849 - 127.626876) < 1e-8);
+    assert.ok(Math.abs(pawns[i].x - center.x - expected[i][0] * 62.08849) < 1e-8);
+    assert.ok(Math.abs(pawns[i].y - center.y - expected[i][1] * 62.08849) < 1e-8);
   }
 });
 
