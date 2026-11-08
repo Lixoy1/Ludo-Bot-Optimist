@@ -1,3 +1,4 @@
+import { EventEmitter } from "node:events";
 import { randomBytes, randomInt, timingSafeEqual } from "node:crypto";
 import { createClassicState, rollClassicDice, applyClassicMove } from "../../src/engine/classic-engine.mjs";
 import { getCharacter } from "../../src/characters.mjs";
@@ -17,9 +18,10 @@ function view(room) {
   return { id:room.id,status:room.status,createdAt:room.createdAt,updatedAt:room.updatedAt,
     players:room.players.map(({secret,...p})=>({...p})),state:room.state?structuredClone(room.state):null };
 }
-export class RoomService {
+export class RoomService extends EventEmitter {
   #store; #now; #rollDie;
   constructor({store=new MemoryRoomStore(),now=()=>Date.now(),rollDie=()=>randomInt(1,7)}={}) {
+    super();
     if (!store || !["get","insert","save","delete"].every(k=>typeof store[k]==="function")) throw new TypeError("Room store adapter is invalid.");
     if(typeof now!=="function"||typeof rollDie!=="function") throw new TypeError("Clock and die roller must be functions.");
     this.#store=store;this.#now=now;this.#rollDie=rollDie;
@@ -38,7 +40,7 @@ export class RoomService {
     if(r.status!=="waiting")throw new Error("Room is not accepting players.");
     if(r.players.length>=4)throw new Error("Room is full.");
     const p={id:id(),username:name,characterId,color:["yellow","blue","red","green"][r.players.length],secret:secret()};
-    r.players.push(p);r.updatedAt=this.#now();await this.#store.save(r);
+    r.players.push(p);r.updatedAt=this.#now();await this.#store.save(r);this.emit("room:update",view(r));
     return {room:view(r),playerId:p.id,playerSecret:p.secret};
   }
   async startRoom(roomId,playerId,playerSecret) {
