@@ -1,3 +1,6 @@
+import { readFileSync } from "node:fs";
+import { dirname, resolve } from "node:path";
+import { fileURLToPath } from "node:url";
 import { createClassicState } from "../engine/classic-engine.mjs";
 import { buildTokenRenderModel } from "./token-render-model.mjs";
 
@@ -34,8 +37,11 @@ export function buildClassicBoardPreviewSvg() {
     a.anchorY - b.anchorY || a.anchorX - b.anchorX || a.tokenId.localeCompare(b.tokenId)
   );
 
+  const boardData = "data:image/svg+xml;base64," + readAsset("assets/boards/ludo-board-prototype.svg");
+  const characterData = new Map(["optimist", "poison", "husky", "lilya-detective"].map((id) => [id, "data:image/webp;base64," + readAsset("assets/characters/" + id + ".webp")]));
+
   const images = pawns.map((pawn) => {
-    const assetPath = pawn.src.replace(/^\//, "../");
+    const assetPath = characterData.get(pawn.characterId);
     const label = xml(pawn.characterId + " " + pawn.color + " pawn " + pawn.tokenId);
     return `    <image
       href="${xml(assetPath)}"
@@ -56,7 +62,7 @@ export function buildClassicBoardPreviewSvg() {
      xmlns:xlink="http://www.w3.org/1999/xlink"
      width="1000" height="1000" viewBox="0 0 1000 1000">
   <title>OPTIMIST LUDO — classic board token placement preview</title>
-  <image href="../assets/boards/ludo-board-prototype.svg"
+  <image href="${boardData}"
          x="0" y="0" width="1000" height="1000"
          preserveAspectRatio="xMidYMid meet"/>
   <g id="pawns">
