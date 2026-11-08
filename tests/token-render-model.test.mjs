@@ -133,3 +133,33 @@ test("all rendered sprites use pedestal-baseline anchoring rather than image-cen
     assert.ok(Math.abs(pawn.anchorY - (pawn.y + pawn.slotPitch * 0.47)) < 1e-8);
   }
 });
+
+test("pawns from different players sharing the same global track cell use one common mini-grid", () => {
+  const fourPlayers = [
+    { id: "yellow-player", color: "yellow", characterId: "optimist" },
+    { id: "blue-player", color: "blue", characterId: "poison" },
+    { id: "red-player", color: "red", characterId: "husky" },
+    { id: "green-player", color: "green", characterId: "lilya-detective" }
+  ];
+  const state = createClassicState(fourPlayers);
+  const progressByColor = { yellow: 4, blue: 43, red: 30, green: 17 };
+  for (const player of fourPlayers) {
+    state.tokens[player.id + ":0"].stepProgress = progressByColor[player.color];
+  }
+  const pawns = buildTokenRenderModel(state).filter((item) => item.cellKey === "track:4");
+  assert.equal(pawns.length, 4);
+  assert.deepEqual(new Set(pawns.map((pawn) => pawn.owner)), new Set(fourPlayers.map((player) => player.id)));
+  assert.ok(pawns.every((pawn) => pawn.scale === 0.5));
+  assert.equal(new Set(pawns.map((pawn) => pawn.x + ":" + pawn.y)).size, 4);
+});
+
+test("a single pawn on an outer route cell occupies almost the complete cell height", () => {
+  const state = createClassicState(roster);
+  state.tokens["p1:0"].stepProgress = 4;
+  const pawn = buildTokenRenderModel(state).find((item) => item.tokenId === "p1:0");
+  const cell = getTrackCell(4);
+  assert.equal(pawn.scale, 1);
+  assert.ok(Math.abs(pawn.height - 62.08849 * 0.94) < 1e-8);
+  assert.ok(Math.abs(pawn.imageY - (cell.y - 62.08849 * 0.47)) < 1e-8);
+  assert.ok(Math.abs(pawn.anchorY - (cell.y + 62.08849 * 0.47)) < 1e-8);
+});
