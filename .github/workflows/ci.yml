@@ -12,10 +12,10 @@ jobs:
       - uses: actions/setup-node@v4
         with:
           node-version: 22
-      - name: Export canonical coordinates
-        run: npm run build:coordinates
-      - name: Check generated coordinate map is committed
-        run: git diff --exit-code -- Coordinates_Map.json
+      - name: Generate canonical board artifacts
+        run: npm run build
+      - name: Check generated board artifacts are committed
+        run: git diff --exit-code -- Coordinates_Map.json docs/CLASSIC-BOARD-TOKEN-PREVIEW.svg
       - name: Run geometry and pawn tests
         run: npm test
       - name: Check source syntax
