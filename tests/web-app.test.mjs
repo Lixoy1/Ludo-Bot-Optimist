@@ -47,5 +47,5 @@ test("the development server serves the app, browser modules and character asset
   const missing = await fetch(origin + "/not-found");
   assert.equal(missing.status, 404);
   const denied = await fetch(origin + "/%2e%2e/package.json");
-  assert.equal(denied.status, 403);
+  assert.equal(denied.status, 400);
 });
