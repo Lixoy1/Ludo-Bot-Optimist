@@ -211,7 +211,7 @@ function handleTokenClick(tokenId) {
       animationFrame = requestAnimationFrame(tick);
     } else {
       isAnimating = false;
-          render();
+      render();
       if (state.phase === "finished") {
         setMessage("Победа! " + (playerFor(state.winner)?.username ?? "") + " завершил все четыре фишки.");
       } else if (result.bonusRoll) {
