@@ -6,14 +6,15 @@
   "description": "Clean Telegram Ludo bot and Mini App foundation",
   "scripts": {
     "test": "node --test",
-    "check": "node --check src/board/classic-geometry.mjs && node --check src/board/coordinates.mjs && node --check src/board/pawn-layout.mjs && node --check src/engine/classic-engine.mjs && node --check src/board/token-render-model.mjs && node --check src/board/preview.mjs && node --check scripts/export-board-preview.mjs && node --check scripts/export-board-preview-png.mjs && node --check src/board/movement-animation.mjs && node --check apps/web/main.mjs && node --check scripts/dev-server.mjs && node --check scripts/build-web.mjs && node --check scripts/browser-smoke.mjs",
+    "check": "node --check src/board/classic-geometry.mjs && node --check src/board/coordinates.mjs && node --check src/board/pawn-layout.mjs && node --check src/engine/classic-engine.mjs && node --check src/board/token-render-model.mjs && node --check src/board/preview.mjs && node --check scripts/export-board-preview.mjs && node --check scripts/export-board-preview-png.mjs && node --check src/board/movement-animation.mjs && node --check apps/web/main.mjs && node --check scripts/dev-server.mjs && node --check scripts/build-web.mjs && node --check scripts/browser-smoke.mjs && node --check apps/backend/room-service.mjs && node --check apps/backend/api-server.mjs && node --check apps/backend/server.mjs",
     "build:coordinates": "node scripts/export-coordinates.mjs",
     "build": "npm run build:coordinates && npm run build:preview",
     "build:preview": "node scripts/export-board-preview.mjs",
     "build:preview:png": "node scripts/export-board-preview-png.mjs",
     "dev": "node scripts/dev-server.mjs",
     "start": "node scripts/dev-server.mjs",
-    "build:web": "node scripts/build-web.mjs"
+    "build:web": "node scripts/build-web.mjs",
+    "start:api": "node apps/backend/server.mjs"
   },
   "engines": {
     "node": ">=22"
