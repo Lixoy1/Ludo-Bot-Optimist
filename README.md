@@ -55,6 +55,6 @@ Run the first interactive CLASSIC browser board locally with Node.js 22+:
 npm run dev
 ```
 
-Then open `http://localhost:4173` in a browser. The prototype uses the real Classic rules engine and the same movement/capture animation pipeline as the game foundation. Roll the die, tap a highlighted pawn to move it, and use **Новая партия** to reset.
+Then open `http://localhost:4173` in a browser. Build a deployable static site with `npm run build:web`; GitHub Pages deployment is configured in `.github/workflows/pages.yml`. The prototype uses the real Classic rules engine and the same movement/capture animation pipeline as the game foundation. Roll the die, tap a highlighted pawn to move it, and use **Новая партия** to reset.
 
 The current browser demo is local-only. Dice are generated in the browser for testing; multiplayer rooms, server-authoritative random rolls, reconnect persistence, Telegram WebApp integration, chat and voice are not implemented yet.
