@@ -84,7 +84,8 @@ function renderPlayers() {
 }
 
 function assetUrl(path) {
-  return new URL(String(path).replace(/^\\/+/, ""), document.baseURI).href;
+  const value = String(path);
+  return new URL(value.startsWith("/") ? value.slice(1) : value, document.baseURI).href;
 }
 
 function imageMarkup(item, { animated = false, legal = false } = {}) {
