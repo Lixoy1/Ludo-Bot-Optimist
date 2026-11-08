@@ -139,6 +139,7 @@ export class RoomService {
     if (room.state.currentPlayer !== playerId) throw new Error("It is not your turn.");
     const result = applyClassicMove(room.state, playerId, tokenId);
     room.state = result.state;
+    if (room.state.phase === "finished") room.status = "finished";
     return {
       room: publicRoom(room),
       captured: result.captured,
