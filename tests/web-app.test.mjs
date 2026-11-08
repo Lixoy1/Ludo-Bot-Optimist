@@ -11,7 +11,7 @@ test("the browser app loads a responsive board and the interactive game module",
 
   assert.match(html, /id="game-board"/);
   assert.match(html, /id="roll-button"/);
-  assert.match(html, /type="module" src="\\.\\/apps\\/web\\/main\\.mjs"/);
+  assert.match(html, /type="module" src="\.\/apps\/web\/main\.mjs"/);
   assert.match(css, /@media \(max-width: 760px\)/);
   assert.match(js, /rollClassicDice/);
   assert.match(js, /applyClassicMove/);
