@@ -188,6 +188,18 @@ export function createTurnAnimationPlan(beforeState, afterState, options = {}) {
     throw new TypeError("After-state must contain a committed MOVE action.");
   }
 
+  const beforeMover = beforeState.tokens[action.tokenId];
+  const afterMover = afterState.tokens[action.tokenId];
+  if (
+    !beforeMover ||
+    !afterMover ||
+    action.playerId !== beforeMover.owner ||
+    action.fromProgress !== beforeMover.stepProgress ||
+    action.toProgress !== afterMover.stepProgress
+  ) {
+    throw new Error("Committed MOVE action does not match the supplied before/after states.");
+  }
+
   const mover = createPawnMoveAnimation(beforeState, afterState, action.tokenId, options);
   const staggerMs = options.captureStaggerMs ?? DEFAULT_ANIMATION_TIMING.captureStaggerMs;
   const captureDurationMs = options.captureDurationMs ?? DEFAULT_ANIMATION_TIMING.captureDurationMs;
@@ -202,6 +214,11 @@ export function createTurnAnimationPlan(beforeState, afterState, options = {}) {
   }
 
   const captures = capturedIds.map((tokenId, index) => {
+    const beforeVictim = beforeState.tokens[tokenId];
+    const afterVictim = afterState.tokens[tokenId];
+    if (!beforeVictim || !afterVictim || afterVictim.stepProgress !== -1) {
+      throw new Error("Captured token must exist before and return to base after the move.");
+    }
     const animation = createPawnCaptureAnimation(beforeState, afterState, tokenId, {
       durationMs: captureDurationMs,
       hopRatio: options.captureHopRatio
@@ -332,11 +349,17 @@ export function sampleTurnAnimationPlan(plan, elapsedMs) {
       ...samplePawnCaptureAnimation(entry.animation, localTime)
     };
   });
+  const suppressedTokenIds = [
+    ...(mover.done ? [] : [plan.mover.tokenId]),
+    ...plan.captures
+      .filter((entry) => time - entry.delayMs < entry.animation.durationMs)
+      .map((entry) => entry.tokenId)
+  ];
   return {
     mover,
     captures,
     done: time >= plan.durationMs,
     elapsedMs: Math.min(time, plan.durationMs),
-    suppressedTokenIds: plan.suppressedTokenIds
+    suppressedTokenIds
   };
 }
