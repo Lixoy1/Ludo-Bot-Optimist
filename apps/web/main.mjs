@@ -34,9 +34,7 @@ const liveStatus = $("#live-status");
 let state = createClassicState(PLAYERS);
 let legalTokenIds = [];
 let isAnimating = false;
-let selectedTokenId = null;
 let animationFrame = 0;
-let lastDice = null;
 
 function escapeXml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({
@@ -45,9 +43,12 @@ function escapeXml(value) {
 }
 
 function secureRandomDie() {
-  const bytes = new Uint32Array(1);
-  crypto.getRandomValues(bytes);
-  return (bytes[0] % 6) + 1;
+  const values = new Uint32Array(1);
+  const limit = Math.floor(0x100000000 / 6) * 6;
+  do {
+    crypto.getRandomValues(values);
+  } while (values[0] >= limit);
+  return (values[0] % 6) + 1;
 }
 
 function playerFor(id) {
@@ -96,6 +97,7 @@ function imageMarkup(item, { animated = false, legal = false } = {}) {
     preserveAspectRatio="xMidYMax meet"
     class="${animated ? "animation-image" : "pawn-image"}${legal ? " is-legal" : ""}"
     data-token-id="${escapeXml(item.tokenId)}"
+    ${legal ? 'tabindex="0"' : ""}
     role="${legal ? "button" : "img"}"
     aria-label="${escapeXml(item.characterId)} · ${escapeXml(item.color)}">
     <title>${escapeXml(item.characterId)} — ${escapeXml(item.color)}</title>
@@ -166,7 +168,6 @@ function handleRoll() {
   const dice = secureRandomDie();
   const result = rollClassicDice(before, before.currentPlayer, dice);
   state = result.state;
-  lastDice = dice;
   diceFace.textContent = String(dice);
   diceCaption.textContent = result.skipped
     ? "Три шестёрки — пропуск хода"
@@ -175,7 +176,6 @@ function handleRoll() {
       : result.bonusRoll ? "Шестёрка — бросай ещё раз" : "Нет возможных ходов";
 
   legalTokenIds = result.legalTokenIds;
-  selectedTokenId = null;
   render();
   if (result.skipped) {
     setMessage("Три шестёрки подряд. Ход переходит следующему игроку.");
