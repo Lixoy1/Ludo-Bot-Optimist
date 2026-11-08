@@ -4,6 +4,9 @@ import { fileURLToPath } from "node:url";
 import { createClassicState } from "../engine/classic-engine.mjs";
 import { buildTokenRenderModel } from "./token-render-model.mjs";
 
+const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), "../..");
+const readAsset = (path) => readFileSync(resolve(ROOT, path)).toString("base64");
+
 const DEMO_ROSTER = [
   { id: "demo-yellow", color: "yellow", username: "Optimist", characterId: "optimist" },
   { id: "demo-blue", color: "blue", username: "Poison", characterId: "poison" },
