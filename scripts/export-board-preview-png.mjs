@@ -20,7 +20,11 @@ const state = createClassicState(roster);
 });
 
 const boardPath = resolve(root, "assets/boards/ludo-board-prototype.svg");
-const boardRaster = await sharp(boardPath).resize(1000, 1000).png().toBuffer();
+const boardSvg = (await import("node:fs/promises")).readFile
+  ? await (await import("node:fs/promises")).readFile(boardPath, "utf8")
+  : "";
+const classicBoardSvg = boardSvg.replace("fill:#000000;fill-opacity:1", "fill:#ffffff;fill-opacity:1");
+const boardRaster = await sharp(Buffer.from(classicBoardSvg)).resize(1000, 1000).png().toBuffer();
 const board = await sharp({ create: { width: 1000, height: 1000, channels: 4, background: "#ffffff" } })
   .composite([{ input: boardRaster, left: 0, top: 0 }])
   .png()
