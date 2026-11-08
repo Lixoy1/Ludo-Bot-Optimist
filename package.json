@@ -6,9 +6,11 @@
   "description": "Clean Telegram Ludo bot and Mini App foundation",
   "scripts": {
     "test": "node --test",
-    "check": "node --check src/board/classic-geometry.mjs && node --check src/board/coordinates.mjs && node --check src/board/pawn-layout.mjs",
+    "check": "node --check src/board/classic-geometry.mjs && node --check src/board/coordinates.mjs && node --check src/board/pawn-layout.mjs && node --check src/engine/classic-engine.mjs",
     "build:coordinates": "node scripts/export-coordinates.mjs",
     "build": "npm run build:coordinates"
   },
-  "engines": { "node": ">=22" }
+  "engines": {
+    "node": ">=22"
+  }
 }
