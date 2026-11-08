@@ -2,6 +2,8 @@ import { BOARD } from "./classic-geometry.mjs";
 import { tokenMovementPath } from "./coordinates.mjs";
 import { buildTokenRenderModel } from "./token-render-model.mjs";
 
+const TIME_EPSILON_MS = 1e-7;
+
 export const DEFAULT_ANIMATION_TIMING = Object.freeze({
   stepDurationMs: 135,
   launchDurationMs: 220,
@@ -329,7 +331,7 @@ export function samplePawnCaptureAnimation(animation, elapsedMs) {
     ...sprite,
     opacity: fade,
     rotationDegrees: 8 * Math.sin(Math.PI * t),
-    done: time >= animation.durationMs,
+    done: time >= animation.durationMs - TIME_EPSILON_MS,
     segmentProgress: t,
     elapsedMs: Math.min(time, animation.durationMs)
   };
@@ -345,20 +347,20 @@ export function sampleTurnAnimationPlan(plan, elapsedMs) {
     const localTime = time - entry.delayMs;
     return {
       tokenId: entry.tokenId,
-      active: localTime >= 0 && localTime < entry.animation.durationMs,
+      active: localTime >= 0 && localTime < entry.animation.durationMs - TIME_EPSILON_MS,
       ...samplePawnCaptureAnimation(entry.animation, localTime)
     };
   });
   const suppressedTokenIds = [
     ...(mover.done ? [] : [plan.mover.tokenId]),
     ...plan.captures
-      .filter((entry) => time - entry.delayMs < entry.animation.durationMs)
+      .filter((entry) => time - entry.delayMs < entry.animation.durationMs - TIME_EPSILON_MS)
       .map((entry) => entry.tokenId)
   ];
   return {
     mover,
     captures,
-    done: time >= plan.durationMs,
+    done: time >= plan.durationMs - TIME_EPSILON_MS,
     elapsedMs: Math.min(time, plan.durationMs),
     suppressedTokenIds
   };
