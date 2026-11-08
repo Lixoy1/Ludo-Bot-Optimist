@@ -67,8 +67,10 @@ test("a multi-cell move is split into consecutive eased cell-to-cell segments", 
   const firstCell = getTrackCell(0);
   const secondCell = getTrackCell(1);
   assert.equal(firstHalf.segmentIndex, 0);
-  assert.ok(firstHalf.x > Math.min(firstCell.x, secondCell.x) && firstHalf.x < Math.max(firstCell.x, secondCell.x));
-  assert.ok(firstHalf.y < firstCell.y + 62.08849 * 0.47);
+  assert.ok(firstHalf.x >= Math.min(firstCell.x, secondCell.x) - 1e-8 && firstHalf.x <= Math.max(firstCell.x, secondCell.x) + 1e-8);
+  assert.ok(firstHalf.y >= Math.min(firstCell.y, secondCell.y) && firstHalf.y <= Math.max(firstCell.y, secondCell.y) + 62.08849 * 0.47);
+  const firstSegment = animation.segments[0];
+  assert.ok(firstHalf.y < (firstSegment.from.anchorY + firstSegment.to.anchorY) / 2);
 
   const exactFirstStep = samplePawnMoveAnimation(animation, animation.segments[0].endMs);
   assert.equal(exactFirstStep.segmentIndex, 1);
@@ -153,7 +155,9 @@ test("a complete capture turn plan suppresses static copies and staggers capture
   assert.equal(beforeCapture.captures[0].active, false);
   const returning = sampleTurnAnimationPlan(plan, plan.mover.durationMs + 150);
   assert.equal(returning.captures[0].active, true);
-  assert.ok(returning.captures[0].y < (returning.captures[0].anchorY + returning.captures[0].y) / 2 || returning.captures[0].segmentProgress > 0);
+  const captureAnimation = plan.captures[0].animation;
+  const straightMidpointY = (captureAnimation.from.anchorY + captureAnimation.to.anchorY) / 2;
+  assert.ok(returning.captures[0].y < straightMidpointY);
   const done = sampleTurnAnimationPlan(plan, plan.durationMs);
   assert.equal(done.done, true);
   assert.equal(done.mover.done, true);
