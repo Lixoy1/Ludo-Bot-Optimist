@@ -37,12 +37,12 @@ test("host can start a 2–4 player room and only the current player can roll", 
 test("only the host starts the game; room rejects a fifth player and joins after start", async () => {
   const service = new RoomService();
   const host = await service.createRoom({ username: "Host" });
-  const guests = [1, 2, 3].map((n) => await service.joinRoom(host.room.id, { username: "Guest " + n }));
+  const guests = await Promise.all([1, 2, 3].map((n) => service.joinRoom(host.room.id, { username: "Guest " + n })));
   await assert.rejects(() => service.joinRoom(host.room.id, { username: "Fifth" }), /full/);
-  assert.throws(() => await service.startRoom(host.room.id, guests[0].playerId, guests[0].playerSecret), /Only the room host/);
+  await assert.rejects(() => service.startRoom(host.room.id, guests[0].playerId, guests[0].playerSecret), /Only the room host/);
 
   await service.startRoom(host.room.id, host.playerId, host.playerSecret);
-  assert.throws(() => await service.joinRoom(host.room.id, { username: "Late" }), /not accepting/);
+  await assert.rejects(() => service.joinRoom(host.room.id, { username: "Late" }), /not accepting/);
 });
 
 test("server validates moves and returns a committed state to the authenticated player", async () => {
@@ -65,7 +65,7 @@ test("room secrets are never returned in room snapshots and expired rooms are re
   const service = new RoomService({ now: () => now });
   const host = await service.createRoom({ username: "Host" });
   now += 12 * 60 * 60 * 1000 + 1;
-  assert.throws(() => await service.getRoom(host.room.id, host.playerId, host.playerSecret), /not found or expired/);
+  await assert.rejects(() => service.getRoom(host.room.id, host.playerId, host.playerSecret), /not found or expired/);
 });
 
 test("room survives RoomService recreation when the same persistent store is reused", async () => {
