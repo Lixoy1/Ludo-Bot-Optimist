@@ -1,0 +1,76 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+  <meta name="theme-color" content="#11131a">
+  <meta name="description" content="OPTIMIST LUDO — браузерный прототип классической игры.">
+  <title>OPTIMIST LUDO — CLASSIC</title>
+  <link rel="stylesheet" href="/apps/web/styles.css">
+</head>
+<body>
+  <main class="app-shell">
+    <header class="topbar">
+      <div class="brand-lockup">
+        <div class="brand-mark">O</div>
+        <div>
+          <div class="brand-name">OPTIMIST <span>LUDO</span></div>
+          <div class="brand-subtitle">CLASSIC BOARD · LOCAL DEMO</div>
+        </div>
+      </div>
+      <div class="prototype-badge"><span></span> Локальная демонстрация</div>
+    </header>
+
+    <section class="game-layout" aria-label="Игровое поле">
+      <aside class="game-panel">
+        <div class="panel-heading">
+          <div class="eyebrow">ТЕКУЩИЙ ХОД</div>
+          <div id="turn-player" class="turn-player">ЖЁЛТЫЙ</div>
+          <div id="turn-hint" class="turn-hint">Брось кубик, чтобы начать.</div>
+        </div>
+
+        <div class="dice-panel">
+          <div id="dice-face" class="dice-face" aria-label="Значение кубика">—</div>
+          <button id="roll-button" class="primary-button" type="button">Бросить кубик</button>
+          <div id="dice-caption" class="dice-caption">Ожидает броска</div>
+        </div>
+
+        <div id="legal-hint" class="legal-hint" aria-live="polite">
+          Для выхода из базы нужна шестёрка.
+        </div>
+
+        <div class="panel-divider"></div>
+
+        <div class="eyebrow">ИГРОКИ</div>
+        <div id="player-list" class="player-list"></div>
+
+        <button id="new-game-button" class="secondary-button" type="button">
+          <span aria-hidden="true">↻</span> Новая партия
+        </button>
+      </aside>
+
+      <section class="board-stage">
+        <div class="board-frame">
+          <svg id="game-board" class="game-board" viewBox="0 0 1000 1000"
+               role="group" aria-label="Классическая доска OPTIMIST LUDO">
+            <image href="/assets/boards/ludo-board-web.svg"
+                   x="0" y="0" width="1000" height="1000"
+                   preserveAspectRatio="xMidYMid meet"></image>
+            <g id="pawn-layer"></g>
+          </svg>
+        </div>
+        <div class="board-caption">
+          <span>CLASSIC · 2–4 ИГРОКА</span>
+          <span id="game-revision">ХОД 0</span>
+        </div>
+      </section>
+    </section>
+
+    <footer class="footer-note">
+      Игровые правила работают локально в браузере. Сетевые комнаты, Telegram и серверная синхронизация подключаются следующим этапом.
+    </footer>
+    <div id="live-status" class="sr-only" aria-live="polite"></div>
+  </main>
+  <script type="module" src="/apps/web/main.mjs"></script>
+</body>
+</html>
