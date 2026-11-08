@@ -1,5 +1,5 @@
 import test from "node:test";import assert from "node:assert/strict";
-import{BOARD,COLORS,PLAYER_CONFIG,SAFE_TRACK_INDICES,TRACK_GRID,cellCenter,getFinishSlots}from"../src/board/classic-geometry.mjs";
+import{BOARD,COLORS,PLAYER_CONFIG,SAFE_TRACK_INDICES,TRACK_GRID,baseSlotPoint,cellCenter,getFinishSlots}from"../src/board/classic-geometry.mjs";
 import{buildCoordinateMap,positionFromProgress,tokenMovementPath}from"../src/board/coordinates.mjs";
 import{getPawnDimensions,getPawnStackLayout}from"../src/board/pawn-layout.mjs";
 import{CHARACTERS,getCharacter}from"../src/characters.mjs";
@@ -16,3 +16,5 @@ test("finish sockets are player-specific",()=>{for(const c of COLORS){const p=to
 test("movement cannot skip a route square",()=>{const p=tokenMovementPath("blue",5,11);assert.equal(p.length,6);assert.deepEqual(p.map(x=>x.progress),[6,7,8,9,10,11]);});
 test("all 12 original project heroes use measured portrait dimensions",()=>{assert.equal(CHARACTERS.length,12);for(const c of CHARACTERS){assert.ok(c.height>=507&&c.height<=508);const s=getPawnDimensions(getCharacter(c.id));assert.ok(s.width<BOARD.grid.cellPitch&&s.height<BOARD.grid.cellPitch);}});
 test("2-4 pawn stacks stay separated and fully inside a cell",()=>{const pitch=BOARD.grid.cellPitch;for(const n of [2,3,4]){const points=getPawnStackLayout(n,pitch),size=getPawnDimensions(getCharacter("optimist"),pitch,points[0].scale);assert.equal(points.length,n);for(const p of points){assert.ok(Math.abs(p.x)+size.width/2<pitch/2);assert.ok(Math.abs(p.y)+size.height/2<pitch/2);}}});
+
+test("base pawn anchors are centered in the four inner base cells",()=>{const expected={yellow:[[11,2],[12,2],[11,3],[12,3]],blue:[[11,11],[12,11],[11,12],[12,12]],red:[[2,11],[3,11],[2,12],[3,12]],green:[[2,2],[3,2],[2,3],[3,3]]};for(const c of COLORS){assert.deepEqual(PLAYER_CONFIG[c].baseSlots,expected[c]);for(let i=0;i<4;i++){const [col,row]=expected[c][i];assert.deepEqual(baseSlotPoint(c,i),cellCenter(col,row));}}});
