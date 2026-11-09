@@ -55,7 +55,7 @@ const roomCode = networkPanel.querySelector("#room-code");
 const startRoomButton = networkPanel.querySelector("#start-room");
 const createRoomButton = networkPanel.querySelector("#create-room");
 const joinRoomButton = networkPanel.querySelector("#join-room");
-const API_BASE = "";
+const API_BASE = window.OPTIMIST_API_BASE || "http://localhost:4174";
 function savedCredentials() {
   try { return JSON.parse(sessionStorage.getItem("optimist-ludo-player") || "null"); } catch { return null; }
 }
