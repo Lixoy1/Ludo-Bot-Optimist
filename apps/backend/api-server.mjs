@@ -71,7 +71,7 @@ export function createApiServer({ service = new RoomService() } = {}) {
     try {
       url = new URL(request.url ?? "/", "http://localhost");
     } catch {
-      send(response, 400, { error: "Invalid URL." });
+      send(response, 400, { error: "Invalid URL." }, corsOrigin);
       return;
     }
 
