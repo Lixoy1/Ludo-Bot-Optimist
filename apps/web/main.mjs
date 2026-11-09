@@ -97,25 +97,78 @@ function applyRoom(room) {
   roomCode.hidden = false;
   roomCode.textContent = "КОД КОМНАТЫ: " + room.id;
 }
+let reconnectTimer = null;
+let reconnectAttempt = 0;
+let socketGeneration = 0;
+let reconnecting = false;
+const MAX_RECONNECT_DELAY_MS = 15_000;
+
+function scheduleRoomReconnect() {
+  if (!network || reconnectTimer || reconnecting) return;
+  const delay = Math.min(1000 * (2 ** reconnectAttempt), MAX_RECONNECT_DELAY_MS);
+  reconnectAttempt = Math.min(reconnectAttempt + 1, 5);
+  roomStatus.textContent = `Соединение потеряно. Повтор через ${Math.ceil(delay / 1000)} сек.`;
+  reconnectTimer = setTimeout(async () => {
+    reconnectTimer = null;
+    await openRoomSocket(true);
+  }, delay);
+}
+
+async function openRoomSocket(refreshRoom = false) {
+  if (!network || reconnecting) return;
+  reconnecting = true;
+  const generation = ++socketGeneration;
+  try {
+    if (refreshRoom) applyRoom(await api("/api/rooms/" + network.roomId));
+    const {ticket} = await api("/api/rooms/" + network.roomId + "/ticket", {method:"POST"});
+    if (generation !== socketGeneration || !network) return;
+    const scheme = API_URL.protocol === "https:" ? "wss:" : "ws:";
+    const socket = new WebSocket(scheme + "//" + API_URL.host + "/api/rooms/" + network.roomId + "/events?ticket=" + encodeURIComponent(ticket));
+    networkSocket = socket;
+    socket.addEventListener("open", () => {
+      if (socket !== networkSocket) return;
+      reconnectAttempt = 0;
+      roomStatus.textContent = "Соединение восстановлено";
+    });
+    socket.addEventListener("message", event => {
+      if (socket !== networkSocket) return;
+      try {
+        const message = JSON.parse(event.data);
+        if (message.type === "room:update") {
+          legalTokenIds = [];
+          applyRoom(message.room);
+        }
+      } catch {}
+    });
+    socket.addEventListener("close", () => {
+      if (socket !== networkSocket) return;
+      networkSocket = null;
+      scheduleRoomReconnect();
+    });
+    socket.addEventListener("error", () => {
+      if (socket === networkSocket) socket.close();
+    });
+  } catch (error) {
+    if (generation === socketGeneration) {
+      roomStatus.textContent = "Не удалось подключиться. Повторяем…";
+      scheduleRoomReconnect();
+    }
+  } finally {
+    reconnecting = false;
+  }
+}
+
 async function connectRoom(result) {
   network = {roomId: result.room.id, playerId: result.playerId, playerSecret: result.playerSecret};
   saveCredentials(network);
   applyRoom(result.room);
-  const {ticket} = await api("/api/rooms/" + network.roomId + "/ticket", {method:"POST"});
-  const scheme = API_URL.protocol === "https:" ? "wss:" : "ws:";
+  reconnectAttempt = 0;
+  if (reconnectTimer) clearTimeout(reconnectTimer);
+  reconnectTimer = null;
   networkSocket?.close();
-  networkSocket = new WebSocket(scheme + "//" + API_URL.host + "/api/rooms/" + network.roomId + "/events?ticket=" + encodeURIComponent(ticket));
-  networkSocket.addEventListener("message", event => {
-    try {
-      const message = JSON.parse(event.data);
-      if (message.type === "room:update") {
-        legalTokenIds = [];
-        applyRoom(message.room);
-      }
-    } catch {}
-  });
-  networkSocket.addEventListener("close", () => { roomStatus.textContent += " · соединение закрыто"; });
+  networkSocket = null;
   roomStatus.textContent = "Подключаемся к комнате…";
+  await openRoomSocket(false);
 }
 createRoomButton.addEventListener("click", async () => {
   const username = prompt("Твоё имя в игре:", "OPTIMIST");
@@ -141,16 +194,7 @@ startRoomButton.addEventListener("click", async () => {
 const priorCredentials = savedCredentials();
 if (priorCredentials?.roomId && priorCredentials?.playerId && priorCredentials?.playerSecret) {
   network = priorCredentials;
-  api("/api/rooms/" + network.roomId).then(async room => {
-    applyRoom(room);
-    const {ticket} = await api("/api/rooms/" + network.roomId + "/ticket", {method:"POST"});
-    const apiUrl = new URL(API_BASE, location.href);
-    const scheme = apiUrl.protocol === "https:" ? "wss:" : "ws:";
-    networkSocket = new WebSocket(scheme + "//" + apiUrl.host + "/api/rooms/" + network.roomId + "/events?ticket=" + encodeURIComponent(ticket));
-    networkSocket.addEventListener("message", event => {
-      try { const message=JSON.parse(event.data); if(message.type==="room:update"){legalTokenIds=[];applyRoom(message.room);} } catch {}
-    });
-  }).catch(() => { sessionStorage.removeItem("optimist-ludo-player"); network=null; });
+  openRoomSocket(true).catch(() => {});
 }
 
 
