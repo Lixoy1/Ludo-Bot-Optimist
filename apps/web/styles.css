@@ -93,3 +93,9 @@ button:disabled { cursor: not-allowed; opacity: .42; filter: grayscale(.2); }
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { transition-duration: .01ms !important; animation-duration: .01ms !important; }
 }
+
+.network-panel { grid-column: 1 / -1; display: grid; gap: 8px; padding: 12px; border: 1px solid #343a47; border-radius: 12px; background: #191e28; }
+.network-actions { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; }
+.network-actions button { min-height: 38px; font-size: 11px; }
+.network-actions #start-room { grid-column: 1 / -1; }
+.room-code { padding: 8px; border-radius: 8px; background: #252d3b; color: #f4bf2a; font-weight: 800; letter-spacing: .18em; text-align: center; }
