@@ -57,6 +57,7 @@ const startRoomButton = networkPanel.querySelector("#start-room");
 const createRoomButton = networkPanel.querySelector("#create-room");
 const joinRoomButton = networkPanel.querySelector("#join-room");
 const API_BASE = window.OPTIMIST_API_BASE || "http://localhost:4174";
+const API_URL = new URL(API_BASE, location.href);
 function savedCredentials() {
   try { return JSON.parse(sessionStorage.getItem("optimist-ludo-player") || "null"); } catch { return null; }
 }
@@ -68,7 +69,7 @@ async function api(path, {method="GET", body, auth=true}={}) {
     headers["x-player-id"] = network.playerId;
     headers["x-player-secret"] = network.playerSecret;
   }
-  const response = await fetch(API_BASE + path, {method, headers, body: body === undefined ? undefined : JSON.stringify(body)});
+  const response = await fetch(new URL(path, API_URL).toString(), {method, headers, body: body === undefined ? undefined : JSON.stringify(body)});
   const payload = await response.json().catch(() => ({}));
   if (!response.ok) throw new Error(payload.error || "Ошибка сетевого запроса");
   return payload;
@@ -103,7 +104,7 @@ async function connectRoom(result) {
   const {ticket} = await api("/api/rooms/" + network.roomId + "/ticket", {method:"POST"});
   const scheme = location.protocol === "https:" ? "wss:" : "ws:";
   networkSocket?.close();
-  networkSocket = new WebSocket(scheme + "//" + location.host + "/api/rooms/" + network.roomId + "/events?ticket=" + encodeURIComponent(ticket));
+  networkSocket = new WebSocket(scheme + "//" + API_URL.host + "/api/rooms/" + network.roomId + "/events?ticket=" + encodeURIComponent(ticket));
   networkSocket.addEventListener("message", event => {
     try {
       const message = JSON.parse(event.data);
@@ -265,7 +266,7 @@ function renderControls() {
   describeCurrentTurn();
   renderPlayers();
   revisionLabel.textContent = "ХОД " + state.revision;
-  rollButton.disabled = isAnimating || state.phase === "finished" || legalTokenIds.length > 0 || state.dice !== null || (network && networkRoomStatus !== "playing");
+  rollButton.disabled = isAnimating || state.phase === "finished" || legalTokenIds.length > 0 || state.dice !== null || (network && (networkRoomStatus !== "playing" || state.currentPlayer !== network.playerId));
   rollButton.textContent = state.dice !== null && legalTokenIds.length > 0 ? "Выбери фишку" : "Бросить кубик";
   if (network && networkRoomStatus === "waiting") turnHint.textContent = "Ожидаем второго игрока. Код комнаты выше.";
   if (state.phase === "finished") {
@@ -287,35 +288,58 @@ function setMessage(message) {
 
 async function handleRoll() {
   if (isAnimating || state.phase !== "playing" || state.dice !== null) return;
-  const before = state;
-  const dice = secureRandomDie();
-  const result = rollClassicDice(before, before.currentPlayer, dice);
-  state = result.state;
-  diceFace.textContent = String(dice);
-  diceCaption.textContent = result.skipped
-    ? "Три шестёрки — пропуск хода"
-    : result.legalTokenIds.length
-      ? "Выбери подсвеченную фишку"
-      : result.bonusRoll ? "Шестёрка — бросай ещё раз" : "Нет возможных ходов";
-
-  legalTokenIds = result.legalTokenIds;
-  render();
-  if (result.skipped) {
-    setMessage("Три шестёрки подряд. Ход переходит следующему игроку.");
-  } else if (legalTokenIds.length) {
-    setMessage(`Выпало ${dice}. Нажми на одну из ${legalTokenIds.length} подсвеченных фишек.`);
-  } else if (result.bonusRoll) {
-    setMessage("Ни одна фишка не может выйти, но шестёрка даёт дополнительный бросок.");
-  } else {
-    setMessage("Хода нет. Передаём очередь следующему игроку.");
+  try {
+    let result;
+    if (network) {
+      if (state.currentPlayer !== network.playerId) return;
+      result = await api("/api/rooms/" + network.roomId + "/roll", { method: "POST" });
+      state = result.room.state;
+    } else {
+      const dice = secureRandomDie();
+      result = rollClassicDice(state, state.currentPlayer, dice);
+      state = result.state;
+    }
+    const dice = result.dice ?? state.lastAction?.dice;
+    diceFace.textContent = String(dice ?? "—");
+    diceCaption.textContent = result.skipped
+      ? "Три шестёрки — пропуск хода"
+      : result.legalTokenIds.length
+        ? "Выбери подсвеченную фишку"
+        : result.bonusRoll ? "Шестёрка — бросай ещё раз" : "Нет возможных ходов";
+    legalTokenIds = result.legalTokenIds ?? [];
+    render();
+    if (result.skipped) setMessage("Три шестёрки подряд. Ход переходит следующему игроку.");
+    else if (legalTokenIds.length) setMessage(`Выпало ${dice}. Нажми на одну из ${legalTokenIds.length} подсвеченных фишек.`);
+    else if (result.bonusRoll) setMessage("Ни одна фишка не может выйти, но шестёрка даёт дополнительный бросок.");
+    else setMessage("Хода нет. Передаём очередь следующему игроку.");
+  } catch (error) {
+    showNetworkError(error);
+    if (network) {
+      try { applyRoom(await api("/api/rooms/" + network.roomId)); } catch {}
+    }
   }
 }
 
 async function handleTokenClick(tokenId) {
   if (isAnimating || !legalTokenIds.includes(tokenId)) return;
   const before = state;
-  const result = applyClassicMove(before, before.currentPlayer, tokenId);
-  state = result.state;
+  let result;
+  try {
+    if (network) {
+      if (state.currentPlayer !== network.playerId) return;
+      result = await api("/api/rooms/" + network.roomId + "/move", { method: "POST", body: { tokenId } });
+      state = result.room.state;
+    } else {
+      result = applyClassicMove(before, before.currentPlayer, tokenId);
+      state = result.state;
+    }
+  } catch (error) {
+    showNetworkError(error);
+    if (network) {
+      try { applyRoom(await api("/api/rooms/" + network.roomId)); } catch {}
+    }
+    return;
+  }
   legalTokenIds = [];
   const plan = createTurnAnimationPlan(before, state);
   isAnimating = true;
@@ -346,6 +370,7 @@ async function handleTokenClick(tokenId) {
 }
 
 function startNewGame() {
+  if (network) { setMessage("Чтобы начать новую сетевую партию, создай новую комнату."); return; }
   cancelAnimationFrame(animationFrame);
   isAnimating = false;
   state = createClassicState(PLAYERS);
