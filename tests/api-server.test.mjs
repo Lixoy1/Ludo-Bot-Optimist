@@ -10,6 +10,7 @@ async function withServer(run) {
     const origin = "http://127.0.0.1:" + server.address().port;
     await run(origin);
   } finally {
+    server.closeAllConnections();
     await new Promise((resolve, reject) => server.close((error) => error ? reject(error) : resolve()));
   }
 }
@@ -118,9 +119,10 @@ test("authenticated WebSocket ticket receives committed room updates", async () 
       const update = await updatePromise;
       assert.equal(update.type, "room:update");
       assert.equal(update.room.state.revision, 1);
-    } finally { ws.close(); }
+    } finally { ws.terminate(); }
   } finally {
     realtime.close();
+    server.closeAllConnections();
     await new Promise(resolve => server.close(resolve));
   }
 });
