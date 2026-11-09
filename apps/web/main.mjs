@@ -144,8 +144,9 @@ if (priorCredentials?.roomId && priorCredentials?.playerId && priorCredentials?.
   api("/api/rooms/" + network.roomId).then(async room => {
     applyRoom(room);
     const {ticket} = await api("/api/rooms/" + network.roomId + "/ticket", {method:"POST"});
-    const scheme = location.protocol === "https:" ? "wss:" : "ws:";
-    networkSocket = new WebSocket(scheme + "//" + location.host + "/api/rooms/" + network.roomId + "/events?ticket=" + encodeURIComponent(ticket));
+    const apiUrl = new URL(API_BASE, location.href);
+    const scheme = apiUrl.protocol === "https:" ? "wss:" : "ws:";
+    networkSocket = new WebSocket(scheme + "//" + apiUrl.host + "/api/rooms/" + network.roomId + "/events?ticket=" + encodeURIComponent(ticket));
     networkSocket.addEventListener("message", event => {
       try { const message=JSON.parse(event.data); if(message.type==="room:update"){legalTokenIds=[];applyRoom(message.room);} } catch {}
     });
