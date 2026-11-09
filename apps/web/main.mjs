@@ -118,6 +118,7 @@ async function openRoomSocket(refreshRoom = false) {
   if (!network || reconnecting) return;
   reconnecting = true;
   const generation = ++socketGeneration;
+  let shouldRetry = false;
   try {
     if (refreshRoom) applyRoom(await api("/api/rooms/" + network.roomId));
     const {ticket} = await api("/api/rooms/" + network.roomId + "/ticket", {method:"POST"});
@@ -151,10 +152,11 @@ async function openRoomSocket(refreshRoom = false) {
   } catch (error) {
     if (generation === socketGeneration) {
       roomStatus.textContent = "Не удалось подключиться. Повторяем…";
-      scheduleRoomReconnect();
+      shouldRetry = true;
     }
   } finally {
     reconnecting = false;
+    if (shouldRetry) scheduleRoomReconnect();
   }
 }
 
