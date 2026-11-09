@@ -57,14 +57,14 @@ npm run dev
 
 Then open `http://localhost:4173` in a browser. Build a deployable static site with `npm run build:web`; GitHub Pages deployment is configured in `.github/workflows/pages.yml`. The prototype uses the real Classic rules engine and the same movement/capture animation pipeline as the game foundation. Roll the die, tap a highlighted pawn to move it, and use **Новая партия** to reset.
 
-The current browser demo runs locally or can be published to GitHub Pages after enabling Pages once in the repository settings. Dice are generated in the browser for testing; multiplayer rooms, server-authoritative random rolls, reconnect persistence, Telegram WebApp integration, chat and voice are not implemented yet.
+The current browser demo runs locally or can be published to GitHub Pages after enabling Pages once in the repository settings. For local-only testing, dice are generated in the browser. Network rooms and server-authoritative moves are documented below.
 
 
 ## Backend API foundation
 
 The first authenticated room API is in `apps/backend/`. Run it with `npm run start:api` (default port 4174). It creates and joins 2–4 player rooms, starts games as the host, generates dice on the server, and validates moves with the Classic engine. See [docs/BACKEND-ROOM-API.md](docs/BACKEND-ROOM-API.md) for endpoints and current limitations.
 
-**Important:** room storage is still in memory. Rooms do not survive a backend restart; durable storage, WebSocket broadcasts, reconnects and Telegram authentication are not yet implemented.
+**Important:** room storage uses PostgreSQL when `DATABASE_URL` is configured (otherwise local development uses memory). Authenticated WebSocket snapshots and optimistic concurrency are implemented. Telegram initData authentication, spectator mode, multi-instance event fan-out and production hardening remain outstanding.
 
 
 ## PostgreSQL persistence
@@ -74,7 +74,7 @@ Set `DATABASE_URL` in the backend environment to enable persistent rooms. Produc
 
 ## Realtime and concurrency
 
-Room writes use optimistic version checks to reject stale simultaneous actions with HTTP 409. Authenticated players can request a short-lived, single-use WebSocket ticket at `POST /api/rooms/:code/ticket`, then subscribe to `/api/rooms/:code/events?ticket=...` for committed room snapshots. Game actions remain on the authenticated HTTP API. See [docs/REALTIME-AND-CONCURRENCY.md](docs/REALTIME-AND-CONCURRENCY.md).
+Room writes use optimistic version checks to reject stale simultaneous actions with HTTP 409. Authenticated players request a short-lived, single-use WebSocket ticket at `POST /api/rooms/:code/ticket`, then subscribe to `/api/rooms/:code/events?ticket=...` for committed room snapshots. The browser client now sends dice rolls and pawn moves to the authenticated server API; the server owns dice generation and validates every move. See [docs/REALTIME-AND-CONCURRENCY.md](docs/REALTIME-AND-CONCURRENCY.md).
 
 
 ## Local multiplayer development
@@ -88,4 +88,4 @@ npm run start:api
 
 Open `http://localhost:4173`. The browser client uses `http://localhost:4174` for room HTTP requests and WebSocket events by default. For a deployed Mini App, set `window.OPTIMIST_API_BASE` to the public HTTPS origin of the API before loading `apps/web/main.mjs`, and set the API process `WEB_ORIGIN` to the exact public Mini App origin (comma-separated origins are supported). The API must be reachable over HTTPS/WSS from the Mini App.
 
-The current client supports creating a room, joining by code while the room is waiting, host-start, server-side dice/moves and live room snapshots. Spectator mode, Telegram initData authentication, reconnect/resync UX, and multi-instance event fan-out are not implemented yet.
+The current client supports creating a room, joining by code while the room is waiting, host-start, server-side dice/moves and live room snapshots. Refreshing the page attempts to restore the saved player session. A polished reconnect/backoff flow, spectator mode, Telegram initData authentication, and multi-instance event fan-out are not implemented yet.
