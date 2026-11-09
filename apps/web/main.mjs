@@ -2,7 +2,7 @@ import {
   COLORS,
   PLAYER_CONFIG
 } from "../../src/board/classic-geometry.mjs";
-import { createClassicState, rollClassicDice, applyClassicMove } from "../../src/engine/classic-engine.mjs";
+import { createClassicState, rollClassicDice, applyClassicMove, legalMoves } from "../../src/engine/classic-engine.mjs";
 import { buildTokenRenderModel } from "../../src/board/token-render-model.mjs";
 import { createTurnAnimationPlan, sampleTurnAnimationPlan } from "../../src/board/movement-animation.mjs";
 
@@ -81,15 +81,12 @@ function applyRoom(room) {
   networkRoomStatus = room.status;
   if (room.state) {
     state = room.state;
-    legalTokenIds = state.dice === null ? [] : Object.values(state.tokens)
-      .filter(token => token.owner === network.playerId)
-      .filter(token => {
-        // The authoritative server will reject any illegal move; legal IDs are returned on roll.
-        return legalTokenIds.includes(token.id);
-      }).map(token => token.id);
+    legalTokenIds = state.dice === null ? [] : legalMoves(state, network.playerId);
     diceFace.textContent = state.dice === null ? "—" : String(state.dice);
     diceCaption.textContent = state.dice === null ? "Ожидает броска" : "Выбери подсвеченную фишку";
     render();
+  } else {
+    renderControls();
   }
   const host = room.players?.[0]?.id === network?.playerId;
   startRoomButton.hidden = !(host && room.status === "waiting" && room.players.length >= 2);
