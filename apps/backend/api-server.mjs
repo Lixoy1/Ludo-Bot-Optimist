@@ -10,7 +10,8 @@ function send(response, status, payload, origin = null) {
     "content-type": "application/json; charset=utf-8",
     "content-length": Buffer.byteLength(body),
     "cache-control": "no-store",
-    "x-content-type-options": "nosniff"
+    "x-content-type-options": "nosniff",
+    ...(origin ? { "access-control-allow-origin": origin, "access-control-allow-headers": "content-type,x-player-id,x-player-secret", "access-control-allow-methods": "GET,POST,OPTIONS", "vary": "Origin" } : {})
   });
   response.end(body);
 }
@@ -52,6 +53,15 @@ function statusFor(error) {
 
 export function createApiServer({ service = new RoomService() } = {}) {
   return createServer(async (request, response) => {
+    const requestOrigin = request.headers.origin;
+    const allowedOrigins = new Set(["http://localhost:4173", "http://127.0.0.1:4173", ...(process.env.WEB_ORIGIN ? process.env.WEB_ORIGIN.split(",").map(value => value.trim()) : [])]);
+    const corsOrigin = requestOrigin && allowedOrigins.has(requestOrigin) ? requestOrigin : null;
+    if (request.method === "OPTIONS") {
+      if (!corsOrigin) { send(response, 403, { error: "Origin not allowed." }); return; }
+      response.writeHead(204, { "access-control-allow-origin": corsOrigin, "access-control-allow-headers": "content-type,x-player-id,x-player-secret", "access-control-allow-methods": "GET,POST,OPTIONS", "access-control-max-age": "600", "vary": "Origin" });
+      response.end(); return;
+    }
+    if (requestOrigin && !corsOrigin) { send(response, 403, { error: "Origin not allowed." }); return; }
     if (request.method !== "GET" && request.method !== "POST") {
       send(response, 405, { error: "Method not allowed." }, corsOrigin);
       return;
