@@ -4,7 +4,7 @@ import { RoomService } from "./room-service.mjs";
 
 const MAX_BODY_BYTES = 16 * 1024;
 
-function send(response, status, payload) {
+function send(response, status, payload, origin = null) {
   const body = JSON.stringify(payload);
   response.writeHead(status, {
     "content-type": "application/json; charset=utf-8",
@@ -53,7 +53,7 @@ function statusFor(error) {
 export function createApiServer({ service = new RoomService() } = {}) {
   return createServer(async (request, response) => {
     if (request.method !== "GET" && request.method !== "POST") {
-      send(response, 405, { error: "Method not allowed." });
+      send(response, 405, { error: "Method not allowed." }, corsOrigin);
       return;
     }
 
@@ -69,13 +69,13 @@ export function createApiServer({ service = new RoomService() } = {}) {
       if (request.method === "POST" && url.pathname === "/api/rooms") {
         const body = await readJson(request);
         const result = await service.createRoom(body);
-        send(response, 201, result);
+        send(response, 201, result, corsOrigin);
         return;
       }
 
       const match = url.pathname.match(/^\/api\/rooms\/([A-HJ-NP-Z2-9]{6})(?:\/(join|start|roll|move|ticket))?$/i);
       if (!match) {
-        send(response, 404, { error: "Endpoint not found." });
+        send(response, 404, { error: "Endpoint not found." }, corsOrigin);
         return;
       }
 
@@ -84,32 +84,32 @@ export function createApiServer({ service = new RoomService() } = {}) {
 
       if (request.method === "POST" && action === "ticket") {
         const room = await service.getRoom(roomId, auth.playerId, auth.secret);
-        send(response, 200, { ticket: issueRealtimeTicket(roomId.toUpperCase(), auth.playerId), expiresInSeconds: 30 });
+        send(response, 200, { ticket: issueRealtimeTicket(roomId.toUpperCase(), auth.playerId), expiresInSeconds: 30 }, corsOrigin);
         return;
       }
 
       if (request.method === "GET" && !action) {
-        send(response, 200, await service.getRoom(roomId, auth.playerId, auth.secret));
+        send(response, 200, await service.getRoom(roomId, auth.playerId, auth.secret), corsOrigin);
         return;
       }
       if (request.method !== "POST" || !action) {
-        send(response, 405, { error: "Method not allowed." });
+        send(response, 405, { error: "Method not allowed." }, corsOrigin);
         return;
       }
 
       if (action === "join") {
-        send(response, 200, await service.joinRoom(roomId, await readJson(request)));
+        send(response, 200, await service.joinRoom(roomId, await readJson(request)), corsOrigin);
       } else if (action === "start") {
-        send(response, 200, await service.startRoom(roomId, auth.playerId, auth.secret));
+        send(response, 200, await service.startRoom(roomId, auth.playerId, auth.secret), corsOrigin);
       } else if (action === "roll") {
-        send(response, 200, await service.roll(roomId, auth.playerId, auth.secret));
+        send(response, 200, await service.roll(roomId, auth.playerId, auth.secret), corsOrigin);
       } else if (action === "move") {
         const body = await readJson(request);
         if (typeof body.tokenId !== "string") throw Object.assign(new Error("tokenId is required."), { status: 400 });
-        send(response, 200, await service.move(roomId, auth.playerId, auth.secret, body.tokenId));
+        send(response, 200, await service.move(roomId, auth.playerId, auth.secret, body.tokenId), corsOrigin);
       }
     } catch (error) {
-      send(response, statusFor(error), { error: error.message || "Request failed." });
+      send(response, statusFor(error), { error: error.message || "Request failed." }, corsOrigin);
     }
   });
 }
