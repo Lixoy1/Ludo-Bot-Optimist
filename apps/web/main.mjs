@@ -102,7 +102,7 @@ async function connectRoom(result) {
   saveCredentials(network);
   applyRoom(result.room);
   const {ticket} = await api("/api/rooms/" + network.roomId + "/ticket", {method:"POST"});
-  const scheme = location.protocol === "https:" ? "wss:" : "ws:";
+  const scheme = API_URL.protocol === "https:" ? "wss:" : "ws:";
   networkSocket?.close();
   networkSocket = new WebSocket(scheme + "//" + API_URL.host + "/api/rooms/" + network.roomId + "/events?ticket=" + encodeURIComponent(ticket));
   networkSocket.addEventListener("message", event => {
