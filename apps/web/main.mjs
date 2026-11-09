@@ -37,6 +37,7 @@ let isAnimating = false;
 let animationFrame = 0;
 
 let network = null;
+let networkRoomStatus = null;
 let networkSocket = null;
 const networkPanel = document.createElement("section");
 networkPanel.className = "network-panel";
@@ -77,6 +78,7 @@ function showNetworkError(error) {
 }
 function applyRoom(room) {
   if (!room) return;
+  networkRoomStatus = room.status;
   if (room.state) {
     state = room.state;
     legalTokenIds = state.dice === null ? [] : Object.values(state.tokens)
@@ -266,8 +268,9 @@ function renderControls() {
   describeCurrentTurn();
   renderPlayers();
   revisionLabel.textContent = "ХОД " + state.revision;
-  rollButton.disabled = isAnimating || state.phase === "finished" || legalTokenIds.length > 0 || state.dice !== null;
+  rollButton.disabled = isAnimating || state.phase === "finished" || legalTokenIds.length > 0 || state.dice !== null || (network && networkRoomStatus !== "playing");
   rollButton.textContent = state.dice !== null && legalTokenIds.length > 0 ? "Выбери фишку" : "Бросить кубик";
+  if (network && networkRoomStatus === "waiting") turnHint.textContent = "Ожидаем второго игрока. Код комнаты выше.";
   if (state.phase === "finished") {
     const winner = playerFor(state.winner);
     turnHint.textContent = (winner?.username ?? "Игрок") + " победил!";
