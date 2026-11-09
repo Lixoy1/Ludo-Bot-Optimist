@@ -36,6 +36,123 @@ let legalTokenIds = [];
 let isAnimating = false;
 let animationFrame = 0;
 
+let network = null;
+let networkSocket = null;
+const networkPanel = document.createElement("section");
+networkPanel.className = "network-panel";
+networkPanel.innerHTML = `
+  <div class="eyebrow">СЕТЕВАЯ ПАРТИЯ</div>
+  <div class="network-actions">
+    <button id="create-room" class="secondary-button" type="button">Создать комнату</button>
+    <button id="join-room" class="secondary-button" type="button">Войти по коду</button>
+    <button id="start-room" class="primary-button" type="button" hidden>Начать партию</button>
+  </div>
+  <div id="room-status" class="dice-caption" aria-live="polite">Пока локальная игра</div>
+  <div id="room-code" class="room-code" hidden></div>`;
+$(".game-panel").insertBefore(networkPanel, newGameButton);
+const roomStatus = networkPanel.querySelector("#room-status");
+const roomCode = networkPanel.querySelector("#room-code");
+const startRoomButton = networkPanel.querySelector("#start-room");
+const createRoomButton = networkPanel.querySelector("#create-room");
+const joinRoomButton = networkPanel.querySelector("#join-room");
+const API_BASE = "";
+function savedCredentials() {
+  try { return JSON.parse(sessionStorage.getItem("optimist-ludo-player") || "null"); } catch { return null; }
+}
+function saveCredentials(value) { sessionStorage.setItem("optimist-ludo-player", JSON.stringify(value)); }
+async function api(path, {method="GET", body, auth=true}={}) {
+  const headers = {};
+  if (body !== undefined) headers["content-type"] = "application/json";
+  if (auth && network) {
+    headers["x-player-id"] = network.playerId;
+    headers["x-player-secret"] = network.playerSecret;
+  }
+  const response = await fetch(API_BASE + path, {method, headers, body: body === undefined ? undefined : JSON.stringify(body)});
+  const payload = await response.json().catch(() => ({}));
+  if (!response.ok) throw new Error(payload.error || "Ошибка сетевого запроса");
+  return payload;
+}
+function showNetworkError(error) {
+  roomStatus.textContent = error?.message || "Не удалось выполнить запрос";
+}
+function applyRoom(room) {
+  if (!room) return;
+  if (room.state) {
+    state = room.state;
+    legalTokenIds = state.dice === null ? [] : Object.values(state.tokens)
+      .filter(token => token.owner === network.playerId)
+      .filter(token => {
+        // The authoritative server will reject any illegal move; legal IDs are returned on roll.
+        return legalTokenIds.includes(token.id);
+      }).map(token => token.id);
+    diceFace.textContent = state.dice === null ? "—" : String(state.dice);
+    diceCaption.textContent = state.dice === null ? "Ожидает броска" : "Выбери подсвеченную фишку";
+    render();
+  }
+  const host = room.players?.[0]?.id === network?.playerId;
+  startRoomButton.hidden = !(host && room.status === "waiting" && room.players.length >= 2);
+  roomStatus.textContent = room.status === "waiting"
+    ? `Ожидание игроков: ${room.players.length}/4`
+    : room.status === "finished" ? "Партия завершена" : "Сетевая партия активна";
+  roomCode.hidden = false;
+  roomCode.textContent = "КОД КОМНАТЫ: " + room.id;
+}
+async function connectRoom(result) {
+  network = {roomId: result.room.id, playerId: result.playerId, playerSecret: result.playerSecret};
+  saveCredentials(network);
+  applyRoom(result.room);
+  const {ticket} = await api("/api/rooms/" + network.roomId + "/ticket", {method:"POST"});
+  const scheme = location.protocol === "https:" ? "wss:" : "ws:";
+  networkSocket?.close();
+  networkSocket = new WebSocket(scheme + "//" + location.host + "/api/rooms/" + network.roomId + "/events?ticket=" + encodeURIComponent(ticket));
+  networkSocket.addEventListener("message", event => {
+    try {
+      const message = JSON.parse(event.data);
+      if (message.type === "room:update") {
+        legalTokenIds = [];
+        applyRoom(message.room);
+      }
+    } catch {}
+  });
+  networkSocket.addEventListener("close", () => { roomStatus.textContent += " · соединение закрыто"; });
+  roomStatus.textContent = "Подключаемся к комнате…";
+}
+createRoomButton.addEventListener("click", async () => {
+  const username = prompt("Твоё имя в игре:", "OPTIMIST");
+  if (!username) return;
+  try { await connectRoom(await api("/api/rooms", {method:"POST", auth:false, body:{username, characterId:"optimist"}})); }
+  catch (error) { showNetworkError(error); }
+});
+joinRoomButton.addEventListener("click", async () => {
+  const code = prompt("Введи шестизначный код комнаты:");
+  if (!code) return;
+  const username = prompt("Твоё имя в игре:", "PLAYER");
+  if (!username) return;
+  try {
+    const joined = await api("/api/rooms/" + encodeURIComponent(code.trim().toUpperCase()) + "/join", {method:"POST", auth:false, body:{username, characterId:"poison"}});
+    await connectRoom(joined);
+  } catch (error) { showNetworkError(error); }
+});
+startRoomButton.addEventListener("click", async () => {
+  if (!network) return;
+  try { applyRoom(await api("/api/rooms/" + network.roomId + "/start", {method:"POST"})); }
+  catch (error) { showNetworkError(error); }
+});
+const priorCredentials = savedCredentials();
+if (priorCredentials?.roomId && priorCredentials?.playerId && priorCredentials?.playerSecret) {
+  network = priorCredentials;
+  api("/api/rooms/" + network.roomId).then(async room => {
+    applyRoom(room);
+    const {ticket} = await api("/api/rooms/" + network.roomId + "/ticket", {method:"POST"});
+    const scheme = location.protocol === "https:" ? "wss:" : "ws:";
+    networkSocket = new WebSocket(scheme + "//" + location.host + "/api/rooms/" + network.roomId + "/events?ticket=" + encodeURIComponent(ticket));
+    networkSocket.addEventListener("message", event => {
+      try { const message=JSON.parse(event.data); if(message.type==="room:update"){legalTokenIds=[];applyRoom(message.room);} } catch {}
+    });
+  }).catch(() => { sessionStorage.removeItem("optimist-ludo-player"); network=null; });
+}
+
+
 function escapeXml(value) {
   return String(value).replace(/[&<>"']/g, (character) => ({
     "&": "&amp;", "<": "&lt;", ">": "&gt;", '"': "&quot;", "'": "&apos;"
@@ -167,7 +284,7 @@ function setMessage(message) {
   liveStatus.textContent = message;
 }
 
-function handleRoll() {
+async function handleRoll() {
   if (isAnimating || state.phase !== "playing" || state.dice !== null) return;
   const before = state;
   const dice = secureRandomDie();
@@ -193,7 +310,7 @@ function handleRoll() {
   }
 }
 
-function handleTokenClick(tokenId) {
+async function handleTokenClick(tokenId) {
   if (isAnimating || !legalTokenIds.includes(tokenId)) return;
   const before = state;
   const result = applyClassicMove(before, before.currentPlayer, tokenId);
