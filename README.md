@@ -75,3 +75,17 @@ Set `DATABASE_URL` in the backend environment to enable persistent rooms. Produc
 ## Realtime and concurrency
 
 Room writes use optimistic version checks to reject stale simultaneous actions with HTTP 409. Authenticated players can request a short-lived, single-use WebSocket ticket at `POST /api/rooms/:code/ticket`, then subscribe to `/api/rooms/:code/events?ticket=...` for committed room snapshots. Game actions remain on the authenticated HTTP API. See [docs/REALTIME-AND-CONCURRENCY.md](docs/REALTIME-AND-CONCURRENCY.md).
+
+
+## Local multiplayer development
+
+Run the browser app and the room API in two terminals:
+
+```bash
+npm run dev
+npm run start:api
+```
+
+Open `http://localhost:4173`. The browser client uses `http://localhost:4174` for room HTTP requests and WebSocket events by default. For a deployed Mini App, set `window.OPTIMIST_API_BASE` to the public HTTPS origin of the API before loading `apps/web/main.mjs`, and set the API process `WEB_ORIGIN` to the exact public Mini App origin (comma-separated origins are supported). The API must be reachable over HTTPS/WSS from the Mini App.
+
+The current client supports creating a room, joining by code while the room is waiting, host-start, server-side dice/moves and live room snapshots. Spectator mode, Telegram initData authentication, reconnect/resync UX, and multi-instance event fan-out are not implemented yet.
