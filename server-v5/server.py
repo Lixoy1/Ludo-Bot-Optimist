@@ -788,7 +788,7 @@ async def cb_new_game(call: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("join_"))
 async def cb_join_game(call: types.CallbackQuery):
     code = call.data.split("_", 1)[1].upper()
-    room = ROOMS.get(code)
+    room = ROOMS.get(code) or restore_room_from_db(code)
     if not room or room.get("status") != "WAITING":
         await call.answer("Комната уже закрыта или игра началась.", show_alert=True)
         return
@@ -866,7 +866,7 @@ async def cb_join_game(call: types.CallbackQuery):
 @dp.callback_query(F.data.startswith("start_"))
 async def cb_start_game(call: types.CallbackQuery):
     code = call.data.split("_", 1)[1].upper()
-    room = ROOMS.get(code)
+    room = ROOMS.get(code) or restore_room_from_db(code)
     if not room:
         await call.answer("Комната не найдена.", show_alert=True)
         return
