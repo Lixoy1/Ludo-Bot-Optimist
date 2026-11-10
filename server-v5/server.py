@@ -243,13 +243,12 @@ def render_tg_lobby_kb(room):
             [InlineKeyboardButton(text="🔄 Новая игра", callback_data=f"new_{room['game_mode']}")]
         ])
     if room["status"] == "WAITING":
-        join_url = f"https://t.me/Ludo_optimist_bot?startapp=join_{code}"
         return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🎲 ПРИСОЕДИНИТЬСЯ", url=join_url)],
-            [InlineKeyboardButton(text="▶️ СТАРТ", callback_data=f"start_{code}")]
+            [InlineKeyboardButton(text="🎲 Присоединиться", callback_data=f"join_{code}")],
+            [InlineKeyboardButton(text="▶️ Старт", callback_data=f"start_{code}")]
         ])
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎮 Открыть игру", url=f"https://t.me/Ludo_optimist_bot?startapp=join_{code}")],
+        [InlineKeyboardButton(text="🎮 Войти в игру", web_app=WebAppInfo(url=f"{WEBAPP_URL}/room/{code}"))],
         [InlineKeyboardButton(text="🔄 Новая игра", callback_data=f"new_{room['game_mode']}")]
     ])
 
@@ -668,6 +667,65 @@ async def cb_new_game(call: types.CallbackQuery):
     )
     await call.answer("Комната создана. Отправьте друзьям кнопку «Присоединиться к игре».")
 
+@dp.callback_query(F.data.startswith("join_"))
+async def cb_join_game(call: types.CallbackQuery):
+    code = call.data.split("_", 1)[1].upper()
+    room = ROOMS.get(code)
+    if not room or room.get("status") != "WAITING":
+        await call.answer("Комната уже закрыта или игра началась.", show_alert=True)
+        return
+    uid = str(call.from_user.id)
+    async with ROOM_LOCKS[code]:
+        if room.get("status") != "WAITING":
+            await call.answer("Регистрация закрыта.", show_alert=True)
+            return
+        existing = next((p for p in room["players"] if str(p.get("user_id")) == uid), None)
+        if existing:
+            await call.answer("Ты уже за столом.")
+            return
+        if len(room["players"]) >= 4:
+            await call.answer("Все места уже заняты.", show_alert=True)
+            return
+        profile = await get_user(
+            uid,
+            call.from_user.first_name or "Игрок",
+            call.from_user.photo_url or ""
+        )
+        taken = {p["color"] for p in room["players"]}
+        if room["game_mode"] == "TEAM":
+            team = "A" if len(room["players"]) % 2 == 0 else "B"
+            pool = ["red", "yellow"] if team == "A" else ["green", "blue"]
+            color = next((c for c in pool if c not in taken), None)
+        else:
+            team = None
+            fav = profile.get("fav_color")
+            color = fav if fav in COLORS and fav not in taken else None
+        if not color:
+            color = next((c for c in COLORS if c not in taken), None)
+        if not color:
+            await call.answer("Свободных цветов нет.", show_alert=True)
+            return
+        room["players"].append({
+            "user_id": uid,
+            "name": profile["name"],
+            "photo_url": profile["photo_url"],
+            "color": color,
+            "team": team or ("A" if color in ("red", "yellow") else "B"),
+            "skin": profile["skin"],
+            "opening_roll_completed": False,
+            "vip": True,
+            "missed_turns": 0,
+            "rank": None,
+            "left": False
+        })
+        if room["game_mode"] == "QUICK":
+            room["board_state"][color] = [-1, -1]
+        elif room["game_mode"] == "BLITZ":
+            room["board_state"][color] = [0, -1, -1, -1]
+        await sync_tg_message(room)
+    await call.answer("Ты за столом!")
+
+
 @dp.callback_query(F.data.startswith("start_"))
 async def cb_start_game(call: types.CallbackQuery):
     code = call.data.split("_", 1)[1]
@@ -683,38 +741,31 @@ async def cb_start_game(call: types.CallbackQuery):
         if room.get("status") != "WAITING":
             await call.answer("Игра уже началась.", show_alert=True)
             return
-        # The creator may press START directly in the group without first opening
-        # the Mini App. Add their Telegram identity as the first seat.
-        creator_uid = str(call.from_user.id)
-        if not any(str(p.get("user_id")) == creator_uid for p in room["players"]):
-            if room["players"]:
-                await call.answer("Сначала нажмите «Присоединиться», затем «Старт».", show_alert=True)
-                return
-            profile = await get_user(
-                creator_uid,
-                call.from_user.first_name or "Optimist",
-                call.from_user.photo_url or ""
-            )
-            color = profile.get("fav_color") if profile.get("fav_color") in COLORS else "green"
-            room["players"].append({
-                "user_id": creator_uid,
-                "name": profile["name"],
-                "photo_url": profile["photo_url"],
-                "color": color,
-                "team": "A" if color in ("red", "yellow") else "B",
-                "skin": profile["skin"],
-                "opening_roll_completed": False,
-                "vip": True,
-                "missed_turns": 0,
-                "rank": None,
-                "left": False
-            })
+        creator_id = str(room.get("creator_user_id") or "")
+        if creator_id and str(call.from_user.id) != creator_id:
+            await call.answer("Начать игру может только создатель комнаты.", show_alert=True)
+            return
+        if not room["players"]:
+            await call.answer("Сначала нажмите «Присоединиться».", show_alert=True)
+            return
         task = room.get("start_task")
         if task and not task.done():
             task.cancel()
         room["start_task"] = None
         await begin_match(room)
-    await call.answer("Игра начинается! Остальные места заняли боты.")
+    await call.answer("Игра началась!")
+    # Publish a separate game-entry message, matching the reference bot flow.
+    enter_kb = InlineKeyboardMarkup(inline_keyboard=[[
+        InlineKeyboardButton(
+            text="🎮 Войти в игру",
+            web_app=WebAppInfo(url=f"{WEBAPP_URL}/room/{code}")
+        )
+    ]])
+    await call.message.answer(
+        f"🎮 Игра началась! ({MODE_NAMES.get(room['game_mode'], 'Optimist Ludo')})\n"
+        + "\n".join(f"{COLOR_EMOJI[p['color']]} {p['name']}" for p in room["players"]),
+        reply_markup=enter_kb
+    )
 
 @dp.my_chat_member()
 async def on_bot_membership_changed(event: types.ChatMemberUpdated):
