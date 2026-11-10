@@ -1,4 +1,4 @@
-import os, random, string, asyncio, sqlite3, hmac, hashlib, json, time, base64, secrets, re
+import os, random, string, asyncio, sqlite3, hmac, hashlib, json, time, base64
 from urllib.parse import parse_qsl
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
@@ -29,17 +29,6 @@ START_OFFSET = {"green": 0, "yellow": 13, "blue": 26, "red": 39}
 ROOMS = {}
 ROOM_LOCKS = {}
 DB_LOCK = asyncio.Lock()
-
-# Voice notes use a separate authenticated binary HTTP channel (ported from
-# Optimist Durak) instead of sending base64 audio inside WebSocket frames.
-VOICE_SESSIONS = {}
-VOICE_FILES = {}
-VOICE_MAX_BYTES = 512 * 1024
-VOICE_MAX_TOTAL_BYTES = 16 * 1024 * 1024
-VOICE_MAX_FILES = 80
-VOICE_MAX_DURATION_SECONDS = 30
-VOICE_TTL_SECONDS = 6 * 60 * 60
-VOICE_MIME_TYPES = {"audio/webm", "audio/ogg", "audio/mp4"}
 
 # ─── Telegram WebApp authentication ───
 def verify_telegram_init_data(init_data: str) -> dict:
@@ -977,96 +966,6 @@ async def healthz():
     return {"status": "ok"}
 
 
-def _voice_session(request: Request, room_code: str):
-    token = request.headers.get("x-room-session", "")
-    session = VOICE_SESSIONS.get(token)
-    if not session or session.get("room_code") != room_code:
-        raise HTTPException(status_code=401, detail="Голосовая сессия устарела. Переподключись к игре.")
-    room = ROOMS.get(room_code) or restore_room_from_db(room_code)
-    if not room:
-        raise HTTPException(status_code=404, detail="Игровая комната не найдена.")
-    player = next((p for p in room.get("players", []) if str(p.get("user_id")) == str(session["user_id"]) and not p.get("left")), None)
-    if not player:
-        raise HTTPException(status_code=403, detail="Только участники партии могут отправлять голосовые.")
-    return session, room, player
-
-
-def _prune_voice_files():
-    now = time.time()
-    for voice_id, item in list(VOICE_FILES.items()):
-        if now - item["created_at"] > VOICE_TTL_SECONDS:
-            VOICE_FILES.pop(voice_id, None)
-
-
-@app.post("/api/rooms/{room_code}/voice")
-async def upload_room_voice(room_code: str, request: Request):
-    code = normalize_room_code(room_code)
-    if not code or "_" in code:
-        raise HTTPException(status_code=404, detail="Игровая комната не найдена.")
-    session, room, player = _voice_session(request, code)
-    mime_type = request.headers.get("content-type", "").split(";", 1)[0].strip().lower()
-    if mime_type not in VOICE_MIME_TYPES:
-        raise HTTPException(status_code=415, detail="Поддерживаются WebM, OGG и MP4.")
-    try:
-        duration = int(request.headers.get("x-voice-duration", "0"))
-    except (TypeError, ValueError):
-        duration = 0
-    if duration < 1 or duration > VOICE_MAX_DURATION_SECONDS:
-        raise HTTPException(status_code=400, detail="Длительность голосового — от 1 до 30 секунд.")
-    try:
-        declared_size = int(request.headers.get("content-length", "0"))
-    except (TypeError, ValueError):
-        declared_size = 0
-    if declared_size > VOICE_MAX_BYTES:
-        raise HTTPException(status_code=413, detail="Голосовое слишком большое. Запиши короче.")
-    chunks, total = [], 0
-    async for chunk in request.stream():
-        total += len(chunk)
-        if total > VOICE_MAX_BYTES:
-            raise HTTPException(status_code=413, detail="Голосовое слишком большое. Запиши короче.")
-        chunks.append(chunk)
-    audio_bytes = b"".join(chunks)
-    if len(audio_bytes) < 256:
-        raise HTTPException(status_code=400, detail="Запись слишком короткая или пустая.")
-    _prune_voice_files()
-    current_bytes = sum(len(item["data"]) for item in VOICE_FILES.values())
-    while len(VOICE_FILES) >= VOICE_MAX_FILES or current_bytes + len(audio_bytes) > VOICE_MAX_TOTAL_BYTES:
-        oldest = min(VOICE_FILES, key=lambda key: VOICE_FILES[key]["created_at"], default=None)
-        if oldest is None:
-            break
-        removed = VOICE_FILES.pop(oldest)
-        current_bytes -= len(removed["data"])
-    if current_bytes + len(audio_bytes) > VOICE_MAX_TOTAL_BYTES:
-        raise HTTPException(status_code=503, detail="Временное хранилище голосовых заполнено.")
-    voice_id = secrets.token_hex(16)
-    VOICE_FILES[voice_id] = {
-        "room_code": code, "mime_type": mime_type,
-        "data": audio_bytes, "created_at": time.time()
-    }
-    message = {
-        "user_id": str(session["user_id"]), "name": player.get("name", "Игрок"),
-        "color": player.get("color", ""), "voice_id": voice_id,
-        "mime_type": mime_type, "duration_seconds": duration
-    }
-    await broadcast(room, {"event": "NEW_VOICE_MESSAGE", "message": message})
-    return JSONResponse({"voice_id": voice_id}, status_code=201)
-
-
-@app.get("/api/rooms/{room_code}/voice/{voice_id}")
-async def get_room_voice(room_code: str, voice_id: str, request: Request):
-    code = normalize_room_code(room_code)
-    if not code or "_" in code or not re.fullmatch(r"[a-f0-9]{32}", voice_id):
-        raise HTTPException(status_code=404, detail="Голосовое сообщение не найдено.")
-    _session, _room, _player = _voice_session(request, code)
-    _prune_voice_files()
-    item = VOICE_FILES.get(voice_id)
-    if not item or item["room_code"] != code:
-        raise HTTPException(status_code=404, detail="Голосовое сообщение уже недоступно.")
-    return Response(
-        content=item["data"], media_type=item["mime_type"],
-        headers={"Content-Disposition": "inline", "Cache-Control": "private, no-store", "X-Content-Type-Options": "nosniff"}
-    )
-
 def normalize_room_code(raw_code: str) -> str:
     code = str(raw_code or "").strip().upper()
     if code.startswith("JOIN_"):
@@ -1205,8 +1104,12 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
         return
 
     uid = None
-    voice_session_token = None
-    await websocket.send_json({"event": "CONNECTION_ESTABLISHED"})
+    await websocket.send_json({
+        "event": "CONNECTION_ESTABLISHED",
+        "status": room.get("status", "WAITING"),
+        "players": room.get("players", []),
+        "game_mode": room.get("game_mode", "STANDARD")
+    })
 
     try:
         while True:
@@ -1244,11 +1147,6 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                     await websocket.close(code=4403)
                     return
                 uid = identity["id"]
-                if voice_session_token:
-                    VOICE_SESSIONS.pop(voice_session_token, None)
-                voice_session_token = secrets.token_hex(32)
-                VOICE_SESSIONS[voice_session_token] = {"user_id": uid, "room_code": base_code}
-                await websocket.send_json({"event": "VOICE_SESSION", "token": voice_session_token})
                 name = identity["first_name"]
                 photo_url = identity["photo_url"]
                 team = data.get("team")
@@ -1554,9 +1452,38 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                     })
 
             elif act == "SEND_VOICE_MESSAGE":
-                # Legacy base64 voice uploads are intentionally disabled.
-                # Clients must use the authenticated binary /api/rooms/{code}/voice endpoint.
-                await websocket.send_json({"event": "VOICE_ERROR", "message": "Обнови игру, чтобы отправлять голосовые сообщения."})
+                me = next((p for p in room["players"] if str(p.get("user_id")) == str(uid) and not p.get("left")), None)
+                if not me:
+                    await websocket.send_json({"event": "VOICE_ERROR", "message": "Голосовые доступны только участникам партии."})
+                    continue
+                encoded = str(data.get("audio_data", "") or "")
+                mime_type = str(data.get("mime_type", "audio/webm") or "audio/webm").lower().split(";")[0]
+                if mime_type not in {"audio/webm", "audio/ogg", "audio/mp4"} or not encoded or len(encoded) > 900000:
+                    await websocket.send_json({"event": "VOICE_ERROR", "message": "Формат или размер голосового не поддерживается."})
+                    continue
+                try:
+                    audio_bytes = base64.b64decode(encoded, validate=True)
+                except Exception:
+                    await websocket.send_json({"event": "VOICE_ERROR", "message": "Не удалось прочитать аудиозапись. Попробуй записать ещё раз."})
+                    continue
+                if len(audio_bytes) < 1200 or len(audio_bytes) > 675000:
+                    await websocket.send_json({"event": "VOICE_ERROR", "message": "Запись пустая или слишком большая. Запиши сообщение ещё раз."})
+                    continue
+                try:
+                    duration_ms = int(data.get("duration_ms", 0) or 0)
+                except (TypeError, ValueError):
+                    duration_ms = 0
+                if duration_ms < 1000 or duration_ms > 30000:
+                    await websocket.send_json({"event": "VOICE_ERROR", "message": "Запиши голосовое длительностью от 1 до 30 секунд."})
+                    continue
+                await broadcast(room, {
+                    "event": "NEW_VOICE_MESSAGE",
+                    "message": {
+                        "user_id": uid, "name": me["name"], "color": me["color"],
+                        "mime_type": mime_type, "audio_data": encoded,
+                        "duration_ms": duration_ms
+                    }
+                })
 
             elif act == "SEND_ANIMATION":
                 if not any(p["user_id"] == uid for p in room["players"]):
@@ -1604,7 +1531,5 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                 })
 
     except WebSocketDisconnect:
-        if voice_session_token:
-            VOICE_SESSIONS.pop(voice_session_token, None)
         if uid and uid in room["sockets"] and room["sockets"].get(uid) is websocket:
             del room["sockets"][uid]
