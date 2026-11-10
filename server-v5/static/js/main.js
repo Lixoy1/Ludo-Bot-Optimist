@@ -615,8 +615,20 @@ async function handleMessage(data) {
             const waiting = document.querySelector(".lobby-title");
             if (waiting) waiting.textContent = "Вернитесь в группу и откройте игру заново";
             showChatNotification("", data.message || "Комната не найдена. Откройте игру кнопкой из группы.", null, 9000);
+        } else if (data.event === "STARTING") {
+            const quickStart = document.getElementById("lobby-start-bots");
+            if (quickStart) {
+                quickStart.disabled = true;
+                quickStart.textContent = "⏳ ЗАПУСКАЕМ ИГРУ…";
+            }
+            showChatNotification("", data.message || "Запускаем игру…", null, 2500);
         } else if (data.event === "AUTH_ERROR") {
             joinRequestPending = false;
+            const quickStart = document.getElementById("lobby-start-bots");
+            if (quickStart) {
+                quickStart.disabled = false;
+                quickStart.textContent = "🤖 НАЧАТЬ ИГРУ С БОТАМИ";
+            }
             showChatNotification('', data.message || "Требуется открыть игру через Telegram", null, 7000);
         } else if (data.event === "GAME_ERROR") {
             const quickStart = document.getElementById("lobby-start-bots");
@@ -693,6 +705,8 @@ async function handleMessage(data) {
             const picker = document.getElementById("character-select-overlay");
             if (picker) picker.hidden = true;
             setTurnSeconds(data.game_mode);
+            const quickStart = document.getElementById("lobby-start-bots");
+            if (quickStart) quickStart.hidden = true;
             document.getElementById("game-info").style.display = "none";
             document.getElementById("board-container").style.display = "block";
             initBoardUI(data);
@@ -909,6 +923,7 @@ function updateRoomUI(data) {
     const startBtn = document.getElementById("start-btn");
     if (startBtn) startBtn.style.display = "none";
     const isAlreadyIn = data.players.some(p => String(p.user_id) === String(userId));
+    const controls = document.getElementById("controls");
     const botStartBtn = document.getElementById("lobby-start-bots");
     const botStartNote = document.getElementById("lobby-start-note");
     if (botStartBtn) {
@@ -922,7 +937,11 @@ function updateRoomUI(data) {
             }
             botStartBtn.disabled = true;
             botStartBtn.textContent = "⏳ ЗАПУСКАЕМ ИГРУ…";
-            ws.send(JSON.stringify({ action: "START_WITH_BOTS", user_id: userId }));
+            ws.send(JSON.stringify({
+                action: "START_WITH_BOTS",
+                user_id: userId,
+                init_data: tg?.initData || ""
+            }));
         };
     }
     if (botStartNote) botStartNote.hidden = !(isAlreadyIn && data.status === "WAITING");

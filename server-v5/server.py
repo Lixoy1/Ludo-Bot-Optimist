@@ -257,25 +257,33 @@ def render_tg_lobby_kb(room):
 
 async def sync_tg_message(room):
     await save_room_db(room)
-    if not room.get("chat_id") or not room.get("msg_id"):
+    if not room.get("chat_id") or not room.get("msg_id") or bot is None:
         return
     try:
-        await bot.edit_message_text(
-            chat_id=room["chat_id"],
-            message_id=room["msg_id"],
-            text=render_tg_lobby_text(room),
-            reply_markup=render_tg_lobby_kb(room),
-            parse_mode="Markdown"
+        await asyncio.wait_for(
+            bot.edit_message_text(
+                chat_id=room["chat_id"],
+                message_id=room["msg_id"],
+                text=render_tg_lobby_text(room),
+                reply_markup=render_tg_lobby_kb(room),
+                parse_mode="Markdown"
+            ),
+            timeout=4.0
         )
-    except Exception:
-        pass
+    except asyncio.TimeoutError:
+        print(f"[TELEGRAM_SYNC_TIMEOUT] room={room.get('code')} status={room.get('status')}")
+    except Exception as exc:
+        print(f"[TELEGRAM_SYNC_ERROR] room={room.get('code')} error={type(exc).__name__}: {exc}")
 
 async def broadcast(room, payload):
-    for ws in list(room["sockets"].values()):
+    # A stale mobile WebSocket must not block starting the whole match.
+    for uid, ws in list(room["sockets"].items()):
         try:
-            await ws.send_json(payload)
-        except Exception:
-            pass
+            await asyncio.wait_for(ws.send_json(payload), timeout=1.5)
+        except Exception as exc:
+            if room["sockets"].get(uid) is ws:
+                room["sockets"].pop(uid, None)
+            print(f"[WS_BROADCAST_DROP] room={room.get('code')} user={uid} error={type(exc).__name__}")
 
 def can_move_any(board, color, val):
     for pos in board[color]:
@@ -561,14 +569,51 @@ async def begin_match(room):
     room["dice"] = None
     active_p = room["players"][0]
     t_sec = 15 if room["game_mode"] == "BLITZ" else 30
+    await save_room_db(room)
     await broadcast(room, {
         "event": "GAME_STARTED", "status": "PLAYING", "game_mode": room["game_mode"],
         "board_state": room["board_state"], "players": room["players"],
         "turn": room["turn"], "active_user_id": active_p["user_id"], "timer": t_sec
     })
-    await sync_tg_message(room)
-    await save_room_db(room)
+    # Board and bot/player turn logic are live before the Telegram group edit.
     await schedule_turn_actor(room)
+    try:
+        await asyncio.wait_for(sync_tg_message(room), timeout=4.5)
+    except asyncio.TimeoutError:
+        print(f"[GAME_START_SYNC_TIMEOUT] room={room.get('code')}")
+
+async def start_waiting_room(room, actor_id, source="miniapp", websocket=None):
+    """One authoritative start path for Telegram group and Mini App buttons."""
+    code = room["code"]
+    lock = ROOM_LOCKS.setdefault(code, asyncio.Lock())
+    actor_id = str(actor_id)
+    async with lock:
+        if room.get("status") != "WAITING":
+            return False, "Игра уже началась или комната закрыта."
+        if not room.get("players"):
+            return False, "Сначала нажмите «Присоединиться»."
+        seated = any(str(p.get("user_id")) == actor_id for p in room["players"])
+        if not seated:
+            return False, "Сначала присоединитесь к комнате."
+        if websocket is not None:
+            room.setdefault("sockets", {})[actor_id] = websocket
+            try:
+                await websocket.send_json({"event": "STARTING", "message": "Запускаем игру и добавляем ботов…"})
+            except Exception:
+                pass
+        task = room.get("start_task")
+        if task and not task.done() and task is not asyncio.current_task():
+            task.cancel()
+        room["start_task"] = None
+        try:
+            await begin_match(room)
+        except Exception as exc:
+            print(f"[GAME_START_ERROR] room={code} source={source} actor={actor_id} error={type(exc).__name__}: {exc}")
+            return False, "Не удалось запустить игру. Попробуйте ещё раз."
+        if room.get("status") != "PLAYING":
+            return False, "Игра не запустилась. Проверьте состав игроков."
+        print(f"[GAME_START_OK] room={code} source={source} actor={actor_id} players={len(room['players'])}")
+        return True, "Игра началась!"
 
 async def schedule_autostart(room):
     current = asyncio.current_task()
@@ -769,44 +814,35 @@ async def cb_join_game(call: types.CallbackQuery):
 
 @dp.callback_query(F.data.startswith("start_"))
 async def cb_start_game(call: types.CallbackQuery):
-    code = call.data.split("_", 1)[1]
+    code = call.data.split("_", 1)[1].upper()
     room = ROOMS.get(code)
-    if not room or room.get("status") != "WAITING":
-        await call.answer("Комната уже закрыта или игра началась.", show_alert=True)
+    if not room:
+        await call.answer("Комната не найдена.", show_alert=True)
         return
-    creator_id = str(room.get("creator_user_id") or "")
-    if creator_id and str(call.from_user.id) != creator_id:
-        await call.answer("Начать игру может только создатель комнаты.", show_alert=True)
+    # Acknowledge immediately; do not leave Telegram's callback spinner running
+    # while network synchronization or AI initialization happens.
+    await call.answer("⏳ Запускаю игру…")
+    ok, message = await start_waiting_room(room, call.from_user.id, source="telegram_group")
+    if not ok:
+        await call.message.answer(f"⚠️ {message}")
         return
-    async with ROOM_LOCKS[code]:
-        if room.get("status") != "WAITING":
-            await call.answer("Игра уже началась.", show_alert=True)
-            return
-        creator_id = str(room.get("creator_user_id") or "")
-        if creator_id and str(call.from_user.id) != creator_id:
-            await call.answer("Начать игру может только создатель комнаты.", show_alert=True)
-            return
-        if not room["players"]:
-            await call.answer("Сначала нажмите «Присоединиться».", show_alert=True)
-            return
-        task = room.get("start_task")
-        if task and not task.done():
-            task.cancel()
-        room["start_task"] = None
-        await begin_match(room)
-    await call.answer("Игра началась!")
-    # Publish a separate game-entry message, matching the reference bot flow.
     enter_kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(
             text="🎮 Войти в игру",
             url=f"https://t.me/Ludo_optimist_bot?startapp=join_{code}"
         )
     ]])
-    await call.message.answer(
-        f"🎮 Игра началась! ({MODE_NAMES.get(room['game_mode'], 'Optimist Ludo')})\n"
-        + "\n".join(f"{COLOR_EMOJI[p['color']]} {p['name']}{' (БОТ)' if p.get('is_bot') else ''}" for p in room["players"]),
-        reply_markup=enter_kb
-    )
+    try:
+        await call.message.answer(
+            f"🎮 Игра началась! ({MODE_NAMES.get(room['game_mode'], 'Optimist Ludo')})\\n"
+            + "\\n".join(
+                f"{COLOR_EMOJI[p['color']]} {p['name']}{' (БОТ)' if p.get('is_bot') else ''}"
+                for p in room["players"]
+            ),
+            reply_markup=enter_kb
+        )
+    except Exception as exc:
+        print(f"[GAME_START_ANNOUNCEMENT_ERROR] room={code} error={type(exc).__name__}: {exc}")
 
 @dp.my_chat_member()
 async def on_bot_membership_changed(event: types.ChatMemberUpdated):
@@ -986,6 +1022,19 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
             data = await websocket.receive_json()
             act = data.get("action")
 
+            if act in ("START_GAME", "START_WITH_BOTS") and not uid:
+                try:
+                    identity = resolve_webapp_identity(
+                        str(data.get("init_data", "") or ""),
+                        user_id=str(data.get("user_id", "") or ""),
+                        name=str(data.get("name", "Player") or "Player"),
+                        photo_url=str(data.get("photo_url", "") or "")
+                    )
+                    uid = identity["id"]
+                except HTTPException:
+                    await websocket.send_json({"event": "AUTH_ERROR", "message": "Telegram authentication failed. Reopen the game from the group button."})
+                    continue
+
             if act not in ("PING", "JOIN_GAME") and not uid:
                 await websocket.send_json({"event": "AUTH_ERROR", "message": "Join the game first"})
                 continue
@@ -1093,25 +1142,14 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                         })
 
             elif act in ("START_GAME", "START_WITH_BOTS"):
-                if not uid:
-                    continue
-                async with ROOM_LOCKS[room["code"]]:
-                    seated = any(str(p.get("user_id")) == str(uid) for p in room["players"])
-                    host_id = str(room.get("creator_user_id") or (room["players"][0]["user_id"] if room["players"] else ""))
-                    if room["status"] != "WAITING":
-                        await websocket.send_json({"event": "GAME_ERROR", "message": "Игра уже началась"})
-                    elif act == "START_WITH_BOTS" and not seated:
-                        await websocket.send_json({"event": "GAME_ERROR", "message": "Сначала присоединитесь к комнате"})
-                    elif act == "START_GAME" and (not room["players"] or str(room["players"][0]["user_id"]) != str(uid)):
-                        await websocket.send_json({"event": "GAME_ERROR", "message": "Начать игру может только создатель комнаты"})
-                    elif not room["players"]:
-                        await websocket.send_json({"event": "GAME_ERROR", "message": "Сначала войдите в комнату"})
-                    else:
-                        task = room.get("start_task")
-                        if task and not task.done():
-                            task.cancel()
-                        room["start_task"] = None
-                        await begin_match(room)
+                ok, message = await start_waiting_room(
+                    room,
+                    uid,
+                    source="miniapp_quick_start" if act == "START_WITH_BOTS" else "miniapp_start",
+                    websocket=websocket
+                )
+                if not ok:
+                    await websocket.send_json({"event": "GAME_ERROR", "message": message})
 
             elif act == "LEAVE_GAME":
                 if not uid:

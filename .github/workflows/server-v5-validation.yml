@@ -45,7 +45,7 @@ jobs:
           PY
           node --check /tmp/index.html-inline.js
           node --check /tmp/cabinet.html-inline.js
-      - name: Test AI opponents and opening dice flow
+      - name: Test AI opponents, opening dice and both start paths
         run: |
           cd server-v5
           APP_ENV=development DATABASE_PATH=/tmp/optimist-ludo-bot-tests.db python -m unittest test_game_bots.py -v

@@ -121,5 +121,60 @@ class BotRoomTests(unittest.TestCase):
         self.assertIsNone(room["actor_task"])
 
 
+
+    def test_quick_start_as_seated_player_fills_three_bots_and_starts(self):
+        async def run():
+            room = self.make_room([{
+                "user_id": "human-1", "name": "Player", "color": "green",
+                "team": "B", "skin": "optimist", "finished": False,
+            }])
+            server.ROOM_LOCKS[room["code"]] = asyncio.Lock()
+            with (
+                patch.object(server, "broadcast", new=unittest.mock.AsyncMock()),
+                patch.object(server, "sync_tg_message", new=unittest.mock.AsyncMock()),
+                patch.object(server, "save_room_db", new=unittest.mock.AsyncMock()),
+                patch.object(server, "schedule_turn_actor", new=unittest.mock.AsyncMock()),
+            ):
+                ok, message = await server.start_waiting_room(room, "human-1", source="miniapp_quick_start")
+            self.assertTrue(ok, message)
+            self.assertEqual(room["status"], "PLAYING")
+            self.assertEqual(len(room["players"]), 4)
+            self.assertEqual(sum(1 for p in room["players"] if p.get("is_bot")), 3)
+        asyncio.run(run())
+
+    def test_quick_start_rejects_non_seated_user(self):
+        async def run():
+            room = self.make_room([{
+                "user_id": "human-1", "name": "Player", "color": "green",
+                "team": "B", "skin": "optimist", "finished": False,
+            }])
+            server.ROOM_LOCKS[room["code"]] = asyncio.Lock()
+            ok, message = await server.start_waiting_room(room, "stranger", source="miniapp_quick_start")
+            self.assertFalse(ok)
+            self.assertIn("присоедин", message.lower())
+            self.assertEqual(room["status"], "WAITING")
+            self.assertEqual(len(room["players"]), 1)
+        asyncio.run(run())
+
+    def test_group_start_uses_same_path_as_mini_app_start(self):
+        async def run():
+            room = self.make_room([{
+                "user_id": "human-1", "name": "Player", "color": "green",
+                "team": "B", "skin": "optimist", "finished": False,
+            }])
+            room["creator_user_id"] = "human-1"
+            server.ROOM_LOCKS[room["code"]] = asyncio.Lock()
+            with (
+                patch.object(server, "broadcast", new=unittest.mock.AsyncMock()),
+                patch.object(server, "sync_tg_message", new=unittest.mock.AsyncMock()),
+                patch.object(server, "save_room_db", new=unittest.mock.AsyncMock()),
+                patch.object(server, "schedule_turn_actor", new=unittest.mock.AsyncMock()),
+            ):
+                ok, message = await server.start_waiting_room(room, "human-1", source="telegram_group")
+            self.assertTrue(ok, message)
+            self.assertEqual(room["status"], "PLAYING")
+            self.assertEqual(len(room["players"]), 4)
+        asyncio.run(run())
+
 if __name__ == "__main__":
     unittest.main()
