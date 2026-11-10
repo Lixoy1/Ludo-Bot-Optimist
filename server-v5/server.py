@@ -167,7 +167,8 @@ async def save_room_db(room: dict):
             "consecutive_sixes": room.get("consecutive_sixes", 0),
             "chat_id": room.get("chat_id"),
             "msg_id": room.get("msg_id"),
-            "creator_user_id": room.get("creator_user_id")
+            "creator_user_id": room.get("creator_user_id"),
+            "results_recorded": bool(room.get("results_recorded", False))
         }
         async with DB_LOCK:
             db.execute("INSERT OR REPLACE INTO rooms (code, state_json) VALUES (?, ?)", (room["code"], json.dumps(snapshot)))
@@ -185,6 +186,8 @@ def restore_room_from_db(code: str):
         if data.get("status") == "FINISHED":
             return None
         data["sockets"] = {}
+        data["spectators"] = {}
+        data.setdefault("results_recorded", False)
         data["start_task"] = None
         data["turn_task"] = None
         data["turn_gen"] = int(data.get("turn_gen", 0))
@@ -244,6 +247,8 @@ async def create_room_state(code: str, mode: str = "STANDARD", chat_id: int = No
             "status": "WAITING",
             "game_mode": mode,
             "players": [],
+            "spectators": {},
+            "results_recorded": False,
             "board_state": {"green": [-1]*4, "yellow": [-1]*4, "blue": [-1]*4, "red": [-1]*4},
             "turn": "green",
             "dice": None,
@@ -360,6 +365,43 @@ def can_move_any(board, color, val):
             return True
     return False
 
+def assign_finish_rank(room, player):
+    """Assign exactly one deterministic finish place to a player or bot."""
+    if player.get("rank") is None:
+        player["rank"] = 1 + sum(1 for item in room["players"] if item.get("rank") is not None)
+    player["finished"] = True
+    return player["rank"]
+
+
+def standard_match_complete(room):
+    """A standard match ends only after all four seats have a final place."""
+    players = room.get("players", [])
+    return bool(players) and all(p.get("finished") or p.get("left") for p in players)
+
+
+async def record_match_results(room):
+    """Record rank-based rating once; only first place counts as a win."""
+    if room.get("results_recorded"):
+        return {}
+    rating_by_rank = {1: 25, 2: 10, 3: -5, 4: -15}
+    changes = {}
+    async with DB_LOCK:
+        for player in room.get("players", []):
+            if player.get("is_bot") or player.get("rank") is None:
+                continue
+            rank = int(player["rank"])
+            delta = rating_by_rank.get(rank, 0)
+            wins = 1 if rank == 1 else 0
+            db.execute(
+                "UPDATE users SET games=games+1, wins=wins+?, rating=rating+? WHERE user_id=?",
+                (wins, delta, str(player["user_id"]))
+            )
+            changes[str(player["user_id"])] = {"rank": rank, "rating_delta": delta, "win": bool(wins)}
+        db.commit()
+    room["results_recorded"] = True
+    await save_room_db(room)
+    return changes
+
 def arm_turn_timer(room):
     room["turn_gen"] += 1
     gen = room["turn_gen"]
@@ -405,39 +447,46 @@ def bot_legal_pieces(room, color, dice):
     ]
 
 def choose_bot_piece(room, color, legal_pieces, dice, bot):
-    """Prioritize finishing, capturing, leaving base, then advancing."""
+    """Use a measured strategy: progress, safe squares, captures and exposure risk."""
     board = room["board_state"]
     best_index, best_score = legal_pieces[0], float("-inf")
     for index in legal_pieces:
         pos = board[color][index]
         new_pos = 0 if pos == -1 and dice == 6 else pos + dice
-        score = 0.0
         if new_pos == 56:
-            score += 100000
-        elif new_pos >= 51:
-            score += 2500 + new_pos
+            score = 100000.0
         else:
             global_index = (START_OFFSET[color] + new_pos) % 52
-            score += 300 + new_pos * 12
+            score = 240.0 + new_pos * 9.0
             if pos == -1:
-                score += 450
+                score += 300.0
             if global_index in SAFE_GLOBAL:
-                score += 80
-            else:
+                score += 115.0
+
+            capture_count = 0
+            threatened_count = 0
+            if global_index not in SAFE_GLOBAL:
                 for enemy_color, positions in board.items():
                     if enemy_color == color:
                         continue
                     enemy = next((p for p in room["players"] if p["color"] == enemy_color), None)
                     if room["game_mode"] == "TEAM" and enemy and enemy.get("team") == bot.get("team"):
                         continue
-                    score += sum(
-                        12000 for enemy_pos in positions
-                        if 0 <= enemy_pos <= 50 and
-                        (START_OFFSET[enemy_color] + enemy_pos) % 52 == global_index
+                    enemy_global_positions = [
+                        (START_OFFSET[enemy_color] + enemy_pos) % 52
+                        for enemy_pos in positions if 0 <= enemy_pos <= 50
+                    ]
+                    capture_count += sum(1 for enemy_idx in enemy_global_positions if enemy_idx == global_index)
+                    threatened_count += sum(
+                        1 for enemy_idx in enemy_global_positions
+                        if 1 <= (global_index - enemy_idx) % 52 <= 6
                     )
+                score += capture_count * 340.0
+                score -= threatened_count * 125.0
+
         if pos >= 0:
-            score += (new_pos - pos) * (8 if pos >= 51 else 4)
-        score += (3 - index) * 0.01
+            score += (new_pos - pos) * (7.0 if pos >= 51 else 4.0)
+        score += random.random() * 1.5
         if score > best_score:
             best_index, best_score = index, score
     return best_index
@@ -574,7 +623,7 @@ async def run_bot_turn(room):
     current = asyncio.current_task()
     try:
         for _ in range(12):
-            await asyncio.sleep(0.62)
+            await asyncio.sleep(random.uniform(1.15, 1.65))
             async with ROOM_LOCKS[room["code"]]:
                 if room.get("status") != "PLAYING":
                     return
@@ -609,7 +658,7 @@ async def run_bot_turn(room):
                     return
                 piece_index = choose_bot_piece(room, bot["color"], legal, value, bot)
 
-            await asyncio.sleep(0.48)
+            await asyncio.sleep(random.uniform(0.65, 0.9))
             async with ROOM_LOCKS[room["code"]]:
                 if room.get("status") != "PLAYING" or room.get("turn") != bot["color"] or room.get("dice") != value:
                     return
