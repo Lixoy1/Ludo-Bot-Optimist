@@ -28,17 +28,45 @@ const HF = (tg && tg.HapticFeedback) ? tg.HapticFeedback : null;
 let soundEnabled = localStorage.getItem('ludo_sound') !== '0';
 let vibrationEnabled = localStorage.getItem('ludo_vibration') !== '0';
 
-function hapticImpact(style) {   // 'light' | 'medium' | 'heavy' | 'rigid' | 'soft'
+function hapticImpact(style) {
     if (!vibrationEnabled) return;
-    try { HF && HF.impactOccurred(style); } catch (e) {}
+    let usedTelegram = false;
+    try {
+        if (HF && typeof HF.impactOccurred === "function") {
+            HF.impactOccurred(style);
+            usedTelegram = true;
+        }
+    } catch (e) {}
+    if (!usedTelegram && typeof navigator.vibrate === "function") {
+        const duration = style === "heavy" ? 28 : style === "rigid" ? 22 : style === "medium" ? 18 : 10;
+        try { navigator.vibrate(duration); } catch (e) {}
+    }
 }
-function hapticNotify(type) {     // 'error' | 'success' | 'warning'
+function hapticNotify(type) {
     if (!vibrationEnabled) return;
-    try { HF && HF.notificationOccurred(type); } catch (e) {}
+    let usedTelegram = false;
+    try {
+        if (HF && typeof HF.notificationOccurred === "function") {
+            HF.notificationOccurred(type);
+            usedTelegram = true;
+        }
+    } catch (e) {}
+    if (!usedTelegram && typeof navigator.vibrate === "function") {
+        try { navigator.vibrate(type === "error" ? [25, 35, 25] : type === "success" ? [12, 28, 16] : 18); } catch (e) {}
+    }
 }
 function hapticSelection() {
     if (!vibrationEnabled) return;
-    try { HF && HF.selectionChanged(); } catch (e) {}
+    let usedTelegram = false;
+    try {
+        if (HF && typeof HF.selectionChanged === "function") {
+            HF.selectionChanged();
+            usedTelegram = true;
+        }
+    } catch (e) {}
+    if (!usedTelegram && typeof navigator.vibrate === "function") {
+        try { navigator.vibrate(8); } catch (e) {}
+    }
 }
 
 // ─────────────────────────── Kóp tillilik (i18n) ────────────────────────────
@@ -688,6 +716,12 @@ async function handleMessage(data) {
                 joinConfirmed = true;
                 autoJoinGame();
             }
+        } else if (data.event === "ROOM_MEMBERS") {
+            if (latestRoomState) {
+                latestRoomState.players = data.players || latestRoomState.players || [];
+                latestRoomState.spectators = data.spectators || [];
+            }
+            Voice.setPlayers(data.players || [], data.spectators || []);
         } else if (data.event === "ROOM_STATE") {
             latestRoomState = data;
             if ((data.players || []).some(p => String(p.user_id) === String(userId))) {
@@ -714,7 +748,7 @@ async function handleMessage(data) {
             }
             // Update player membership immediately so the mic button is not
             // hidden while players are still in the lobby.
-            Voice.setPlayers(data.players || []);
+            Voice.setPlayers(data.players || [], data.spectators || []);
             if (data.status === "PLAYING" && data.turn) {
                 startLocalTimer(data.turn, data.timer || turnSeconds);
                 if (data.turn === myColor && activeTurnColor !== data.turn) {
@@ -762,7 +796,7 @@ async function handleMessage(data) {
             document.getElementById("game-info").style.display = "none";
             document.getElementById("board-container").style.display = "block";
             initBoardUI(data);
-            Voice.setPlayers(data.players);   // ⚜️ VIP dawıs chatı
+            Voice.setPlayers(data.players || [], data.spectators || []);
             activeTurnColor = data.turn;
             // Reconnect/resync waqtında GAME_STARTED házirgi tolıq taxtanı jiberedi;
             // eski previousState menen diff qılınsa jalǵan «slide»/«eat» animaciya hám
@@ -784,6 +818,8 @@ async function handleMessage(data) {
         } else if (data.event === "DICE_REJECTED") {
             diceRequestPending = false;
             showChatNotification("", data.message || "Сейчас нельзя бросить кубик.", null, 2500);
+        } else if (data.event === "MOVE_REJECTED") {
+            showChatNotification("", data.message || "Сейчас нельзя передвинуть фишку.", null, 2500);
         } else if (data.event === "DICE_RESULT") {
             diceRequestPending = false;
             showDiceResult(data.color, data.value);
@@ -805,6 +841,10 @@ async function handleMessage(data) {
         } else if (data.event === "TURN_CHANGED") {
             diceRequestPending = false;
             currentValidPieces = [];
+            if (latestRoomState) {
+                latestRoomState.turn = data.active_color;
+                if (data.players) latestRoomState.players = data.players;
+            }
             updateTurnUI(data.active_color, data.active_user_id, data.players || (latestRoomState && latestRoomState.players));
             if (data.active_color === myColor && activeTurnColor !== data.active_color) {
                 playSkinSound(myColor, 'turn');
@@ -1054,7 +1094,9 @@ let diceRequestPending = false;
 
 function rollDice() {
     if (!ws || ws.readyState !== WebSocket.OPEN || diceRequestPending) return;
-    if (myColor && activeTurnColor && String(myColor) !== String(activeTurnColor)) return;
+    const me = (latestRoomState?.players || []).find(p => String(p.user_id) === String(userId));
+    if (!me || me.is_bot || me.finished || me.left || !myColor) return;
+    if (!activeTurnColor || String(me.color) !== String(activeTurnColor)) return;
     if (currentValidPieces && currentValidPieces.length) return;
     diceRequestPending = true;
     hapticImpact('medium');
@@ -1498,7 +1540,7 @@ function updateTurnUI(active_color, active_user_id, players) {
         mainDice.style.setProperty("--pc", `var(--${active_color})`);
         const activePlayer = (players || []).find(p => p.color === active_color);
         mainDice.dataset.skin = (activePlayer && activePlayer.skin) || "optimist";
-        const isMyTurn = (active_user_id === userId);
+        const isMyTurn = String(active_user_id) === String(userId) && (players || []).some(p => String(p.user_id) === String(userId) && !p.finished && !p.left);
         mainDice.classList.toggle("active", isMyTurn);
         mainDice.style.pointerEvents = isMyTurn ? "auto" : "none";
         mainDice.style.opacity = isMyTurn ? "1" : "0.78";
@@ -1935,6 +1977,8 @@ function highlightValidPieces(dice_color, dice_value, board_state) {
 }
 
 function movePiece(piece_id) {
+    const me = (latestRoomState?.players || []).find(p => String(p.user_id) === String(userId));
+    if (!me || me.is_bot || me.finished || me.left || !myColor || String(me.color) !== String(activeTurnColor)) return;
     if (autoMoveTimeout) {
         clearTimeout(autoMoveTimeout);
         autoMoveTimeout = null;
