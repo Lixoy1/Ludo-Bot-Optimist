@@ -684,10 +684,12 @@ async function handleMessage(data) {
         } else if (data.event === "DICE_RESULT") {
             showDiceResult(data.color, data.value);
             if (data.auto_start && !data.auto_start_complete) {
+                setTurnComment("Первый запуск", "Автоматически бросаем кубик до первой шестёрки.", (latestRoomState?.players || []).length);
                 setDiceComment("АВТОСТАРТ · ИЩЕМ ШЕСТЁРКУ", `Выпало ${data.value}. Кубик бросается дальше автоматически.`);
             } else if (data.is_bot) {
                 setDiceComment("ХОД БОТА", `Бросок: ${data.value}. Бот выбирает фишку.`);
             } else if (data.auto_start_complete) {
+                setTurnComment("Твой ход", "Выпала шестёрка. Выбери фишку, чтобы выйти из базы.", (latestRoomState?.players || []).length);
                 setDiceComment("ШЕСТЁРКА!", "Фишка выходит из базы. Выбери одну из подсвеченных фишек.");
                 startLocalTimer(data.color, data.timer || turnSeconds);
                 setTimeout(() => highlightValidPieces(data.color, data.value, data.board_state), 150);
@@ -713,6 +715,7 @@ async function handleMessage(data) {
             currentValidPieces = [];
             await renderPieces(data.board_state);
             if (data.move_info && data.move_info.is_bot) {
+                setTurnComment("Бот сделал ход", "Соперник передвинул фишку и рассчитывает следующий ход.", (latestRoomState?.players || []).length);
                 setDiceComment("ХОД БОТА", "Соперник передвинул фишку.");
             }
             if(data.winner_info) {
@@ -1252,6 +1255,15 @@ function setDiceComment(title, message) {
     if (textEl) textEl.textContent = message || "";
 }
 
+function setTurnComment(title, message, count) {
+    const titleEl = document.getElementById("turn-commentary-title");
+    const textEl = document.getElementById("turn-commentary-text");
+    const countEl = document.getElementById("turn-commentary-count");
+    if (titleEl) titleEl.textContent = title || "";
+    if (textEl) textEl.textContent = message || "";
+    if (countEl && Number.isFinite(count)) countEl.textContent = `${count} / 4`;
+}
+
 function characterImageFor(player) {
     const id = player && player.skin;
     const safe = LUDO_CHARACTERS.some(([key]) => key === id) ? id : "optimist";
@@ -1292,8 +1304,17 @@ function updateTurnUI(active_color, active_user_id, players) {
     }
 
     const activePlayer = (players || []).find(p => p.color === active_color);
+    const banner = document.getElementById("turn-commentary");
+    if (banner) banner.style.setProperty("--turn-color", `var(--${active_color})`);
+    const myTurn = String(active_user_id) === String(userId);
+    setTurnComment(
+        activePlayer ? (activePlayer.is_bot ? `Ход: ${activePlayer.name}` : (myTurn ? "Твой ход" : `Ход: ${activePlayer.name}`)) : "Ожидание",
+        activePlayer ? (activePlayer.is_bot ? "Бот думает над доской." : (myTurn ? "Собери стол и бросай кубик." : "Сейчас ход другого игрока.")) : "Собираем игроков за столом.",
+        (players || []).length
+    );
+    const turnIcon = document.getElementById("turn-commentary-icon");
+    if (turnIcon) turnIcon.textContent = activePlayer && activePlayer.is_bot ? "♟" : (myTurn ? "👑" : "♛");
     if (activePlayer) {
-        const myTurn = String(active_user_id) === String(userId);
         if (activePlayer.is_bot) setDiceComment(`ХОД БОТА · ${activePlayer.name}`, "Соперник думает над ходом.");
         else if (myTurn) setDiceComment("ТВОЙ ХОД", "Кубик автоматически бросается до первой шестёрки, затем выбери фишку.");
         else setDiceComment(`ХОД · ${activePlayer.name}`, "Дожидаемся броска соперника.");

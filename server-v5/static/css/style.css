@@ -1626,3 +1626,121 @@ svg { display: block; flex-shrink: 0; }
     .dice-comment-text { font-size: 11px; }
     .player-comment { font-size: 9px; }
 }
+
+
+/* Four-seat OPTIMIST strip: all character portraits stay together above the board. */
+#board-container {
+    display: grid !important;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    align-items: stretch;
+    gap: 8px 6px;
+}
+#top-players, #bottom-players {
+    display: contents !important;
+    margin: 0 !important;
+}
+#top-players #wrapper-green, #wrapper-green { order: 3; }
+#top-players #wrapper-yellow, #wrapper-yellow { order: 4; }
+#bottom-players #wrapper-red, #wrapper-red { order: 2; }
+#bottom-players #wrapper-blue, #wrapper-blue { order: 1; }
+.player-wrap {
+    min-width: 0;
+    width: 100%;
+    visibility: hidden;
+    justify-content: center;
+}
+.player-card {
+    width: 100%;
+    min-width: 0;
+    min-height: 104px;
+    flex: 1 1 0;
+    flex-direction: column;
+    justify-content: center;
+    align-items: center;
+    gap: 4px;
+    padding: 7px 3px 6px;
+    text-align: center;
+    border-radius: 14px;
+}
+.player-card .avatar {
+    width: 38px;
+    height: 38px;
+    border-radius: 12px;
+    font-size: 15px;
+}
+.player-card .player-meta { width: 100%; text-align: center; }
+.player-card .player-name { font-size: 10px; letter-spacing: .01em; }
+.player-card .player-comment { font-size: 8px; margin-top: 2px; }
+.player-card .lives-container { width: 68%; margin: 5px auto 0; }
+#turn-commentary, .ludo-board, .center-dice-dock, #controls { grid-column: 1 / -1; }
+#turn-commentary { order: 5; }
+#ludo-board { order: 6; }
+.center-dice-dock { order: 7; }
+#controls { order: 8; }
+
+.turn-commentary {
+    order: 5;
+    min-width: 0;
+    min-height: 62px;
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 13px;
+    border: 1px solid var(--line-strong);
+    border-radius: 17px;
+    background: linear-gradient(115deg, rgba(26,31,50,.97), rgba(35,29,54,.94));
+    box-shadow: inset 0 1px 0 rgba(255,255,255,.05), 0 10px 25px -20px #000;
+}
+.turn-commentary-icon {
+    flex: 0 0 42px;
+    width: 42px;
+    height: 42px;
+    display: grid;
+    place-items: center;
+    border-radius: 12px;
+    color: var(--turn-color, var(--gold, #f5c542));
+    background: color-mix(in srgb, var(--turn-color, #f5c542) 14%, transparent);
+    border: 1px solid color-mix(in srgb, var(--turn-color, #f5c542) 60%, transparent);
+    font-size: 23px;
+}
+.turn-commentary-copy {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 3px;
+}
+.turn-commentary-copy strong {
+    color: var(--text);
+    font-size: 13px;
+    line-height: 1.2;
+    letter-spacing: .025em;
+}
+.turn-commentary-copy span {
+    color: var(--text-2);
+    font-size: 11px;
+    line-height: 1.3;
+}
+.turn-commentary-count {
+    flex: 0 0 auto;
+    color: var(--gold, #f5c542);
+    font-size: 12px;
+    font-weight: 900;
+    font-variant-numeric: tabular-nums;
+}
+.center-dice-dock .dice-container {
+    width: 64px;
+    height: 64px;
+    border-radius: 17px;
+    background: linear-gradient(145deg, #fff4cb 0%, #e3c16f 52%, #8b652e 100%);
+    border: 1px solid rgba(255,231,161,.85);
+    box-shadow: 0 8px 22px -9px rgba(0,0,0,.72), inset 0 1px 0 rgba(255,255,255,.85);
+}
+.center-dice-dock .die-list { width: 42px; height: 42px; }
+@media (max-width: 360px) {
+    #board-container { gap: 7px 4px; padding-inline: 8px; }
+    .player-card { min-height: 96px; }
+    .player-card .avatar { width: 34px; height: 34px; }
+    .turn-commentary { padding: 8px 9px; gap: 8px; }
+    .turn-commentary-icon { flex-basis: 36px; width: 36px; height: 36px; }
+}
