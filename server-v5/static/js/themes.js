@@ -40,6 +40,7 @@
                 <rect x="354.8" y="354.8" width="219.2" height="219.2"/>
                 <rect x="26" y="354.8" width="219.2" height="219.2"/>
             </g>
+<g fill="#FCFBF7" stroke="#FFFFFF" stroke-width="2"><circle cx="135.6" cy="135.6" r="88"/><circle cx="464.4" cy="135.6" r="88"/><circle cx="464.4" cy="464.4" r="88"/><circle cx="135.6" cy="464.4" r="88"/></g>
             <g fill="#FCFBF7" stroke-width="4">
                 <circle cx="80.9" cy="80.9" r="17" stroke="#79A987"/>
                 <circle cx="190.5" cy="80.9" r="17" stroke="#79A987"/>
