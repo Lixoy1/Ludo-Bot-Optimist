@@ -215,7 +215,7 @@ class BotRoomTests(unittest.TestCase):
         button = keyboard.inline_keyboard[0][0]
         self.assertEqual(button.url, "https://t.me/Ludo_optimist_bot?start=join_ABC123")
         self.assertNotIn("startapp", button.url)
-        self.assertIn("payload.startswith(\"join_\")", server.send_start_menu.__code__.co_consts)
+        self.assertIn("join_", server.send_start_menu.__code__.co_consts)
 
 if __name__ == "__main__":
     unittest.main()
