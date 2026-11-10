@@ -1568,8 +1568,8 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
             elif act == "ROLL_DICE":
                 async with ROOM_LOCKS[room["code"]]:
                     me = next((p for p in room["players"] if str(p["user_id"]) == str(uid)), None)
-                    if not me:
-                        await websocket.send_json({"event": "DICE_REJECTED", "message": "Вы не участвуете в этой партии."})
+                    if not me or me.get("is_bot") or me.get("finished") or me.get("left") or room.get("sockets", {}).get(uid) is not websocket:
+                        await websocket.send_json({"event": "DICE_REJECTED", "message": "Только активный участник партии может бросать кубик."})
                         continue
                     if me["color"] != room["turn"]:
                         await websocket.send_json({"event": "DICE_REJECTED", "message": "Сейчас ход другого игрока."})
@@ -1622,7 +1622,8 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                         await websocket.send_json({"event": "GAME_ERROR", "message": "Invalid piece ID"})
                         continue
                     val = room["dice"]
-                    if not me or me["color"] != room["turn"] or val is None:
+                    if not me or me.get("is_bot") or me.get("finished") or me.get("left") or room.get("sockets", {}).get(uid) is not websocket or me["color"] != room["turn"] or val is None:
+                        await websocket.send_json({"event": "MOVE_REJECTED", "message": "Только активный участник на своём ходу может двигать фишки."})
                         continue
 
                     target_color = me["color"]
