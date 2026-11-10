@@ -1490,38 +1490,39 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                         me = next((p for p in room["players"] if p["user_id"] == uid), None)
                         if me:
                             me["left"] = True
-                            me["finished"] = True
+                            assign_finish_rank(room, me)
                             room["board_state"][me["color"]] = [-1] * len(room["board_state"][me["color"]])
                             room["sockets"].pop(uid, None)
-                            
+
                             remaining = [p for p in room["players"] if not p.get("finished") and not p.get("left")]
-                            if len(remaining) <= 1:
-                                if remaining:
-                                    winner = remaining[0]
-                                    winner["rank"] = 1
-                                    async with DB_LOCK:
-                                        db.execute("UPDATE users SET games=games+1, wins=wins+1, rating=rating+25 WHERE user_id=?", (winner["user_id"],))
-                                        db.commit()
+                            team_done = False
+                            if room["game_mode"] == "TEAM":
+                                team_done = all(
+                                    p.get("finished") or p.get("left")
+                                    for p in room["players"] if p.get("team") == me.get("team")
+                                )
+                            if not remaining or team_done or (room["game_mode"] != "TEAM" and standard_match_complete(room)):
                                 room["status"] = "FINISHED"
-                                if room["turn_task"]:
+                                if room.get("turn_task"):
                                     room["turn_task"].cancel()
-                                await save_room_db(room)
+                                rating_changes = await record_match_results(room)
                                 await broadcast(room, {
                                     "event": "GAME_OVER",
                                     "players": room["players"],
                                     "board_state": room["board_state"],
-                                    "rating_changes": {}
+                                    "rating_changes": rating_changes
                                 })
                                 await sync_tg_message(room)
+                            elif room["turn"] == me["color"]:
+                                await next_turn(room)
                             else:
+                                await save_room_db(room)
                                 await broadcast(room, {
                                     "event": "PIECE_MOVED",
-                                    "board_state": room["board_state"]
+                                    "board_state": room["board_state"],
+                                    "players": room["players"],
+                                    "spectators": list(room.get("spectators", {}).values())
                                 })
-                                if room["turn"] == me["color"]:
-                                    await next_turn(room)
-                                else:
-                                    await save_room_db(room)
 
             elif act == "ROLL_DICE":
                 async with ROOM_LOCKS[room["code"]]:
@@ -1622,26 +1623,31 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                     await save_room_db(room)
                     await broadcast(room, {"event": "PIECE_MOVED", "board_state": room["board_state"]})
 
-                    if all(p == 56 for p in room["board_state"][target_color]):
-                        fin_p = next((p for p in room["players"] if p["color"] == target_color), me)
-                        fin_p["finished"] = True
-                        finished_count = sum(1 for p in room["players"] if p.get("rank"))
-                        fin_p["rank"] = finished_count + 1
-                        async with DB_LOCK:
-                            db.execute("UPDATE users SET games=games+1, wins=wins+1, rating=rating+25 WHERE user_id=?", (fin_p["user_id"],))
-                            db.commit()
+                    fin_p = next((p for p in room["players"] if p["color"] == target_color), me)
+                    just_finished = all(p == 56 for p in room["board_state"][target_color]) and not fin_p.get("finished")
+                    if just_finished:
+                        assign_finish_rank(room, fin_p)
 
                         if room["game_mode"] == "TEAM":
-                            team_done = all(p.get("finished") for p in room["players"] if p["team"] == me["team"])
+                            team_done = all(
+                                p.get("finished") or p.get("left")
+                                for p in room["players"] if p.get("team") == me["team"]
+                            )
                             if team_done:
                                 room["status"] = "FINISHED"
-                                await broadcast(room, {"event": "GAME_OVER", "players": room["players"], "rating_changes": {}})
+                                rating_changes = await record_match_results(room)
+                                await broadcast(room, {"event": "GAME_OVER", "players": room["players"], "rating_changes": rating_changes})
                                 await sync_tg_message(room)
                                 continue
-                        elif finished_count + 1 >= len(room["players"]) - 1:
+                        elif standard_match_complete(room):
                             room["status"] = "FINISHED"
-                            await broadcast(room, {"event": "GAME_OVER", "players": room["players"], "rating_changes": {}})
+                            rating_changes = await record_match_results(room)
+                            await broadcast(room, {"event": "GAME_OVER", "players": room["players"], "rating_changes": rating_changes})
                             await sync_tg_message(room)
+                            continue
+                        elif room["game_mode"] != "TEAM":
+                            # A finished player never keeps the turn just because they rolled a six or captured.
+                            await next_turn(room)
                             continue
 
                     if val == 6 or new_pos == 56 or captured_any:
