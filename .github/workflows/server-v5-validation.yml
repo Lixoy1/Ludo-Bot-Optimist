@@ -45,6 +45,8 @@ jobs:
           grep -q 'audioBitsPerSecond: 32_000' server-v5/static/js/main.js
           grep -q 'addEventListener("pointerdown"' server-v5/static/js/main.js
           grep -q 'addEventListener("pointerup"' server-v5/static/js/main.js
+          grep -q 'Доступ к микрофону сохранён. Теперь зажми кнопку и говори.' server-v5/static/js/main.js
+          grep -q 'hasLiveCachedStream' server-v5/static/js/main.js
           grep -q 'Отпусти, чтобы отправить голосовое' server-v5/static/js/main.js
           ! grep -q 'onclick="toggleVoiceNoteRecording()"' server-v5/index.html
           grep -q 'function createLudoVoicePlayer' server-v5/static/js/main.js
