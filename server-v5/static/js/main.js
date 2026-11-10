@@ -551,6 +551,12 @@ function reconnectNow() {
 // baylanıstı sinxronlaymız — kerek bolsa taza reconnect (qoldан «reload» ornına).
 function onAppForeground() {
     resumeAudio();
+    // The Telegram permission sheet temporarily blurs/hides the WebView.
+    // Do not reconnect the game socket while getUserMedia is awaiting that sheet.
+    if (voicePermissionPromptPending) {
+        hiddenAt = 0;
+        return;
+    }
     const wasHiddenLong = hiddenAt && (Date.now() - hiddenAt > 1500);
     hiddenAt = 0;
     if (!ws || ws.readyState === WebSocket.CLOSED || ws.readyState === WebSocket.CLOSING || wasHiddenLong) {
@@ -2130,6 +2136,7 @@ let voiceNoteChunks = [];
 let voiceNoteStartedAt = 0;
 let voiceNoteMaxTimer = null;
 let voiceSessionToken = "";
+let voicePermissionPromptPending = false;
 let voicePressActive = false;
 let voicePressPointerId = null;
 let voiceStartPending = false;
@@ -2214,9 +2221,15 @@ async function startVoiceNoteRecording() {
             stream.getAudioTracks().some(track => track.readyState === "live");
 
         if (!hasLiveCachedStream) {
-            stream = await navigator.mediaDevices.getUserMedia({
-                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-            });
+            voicePermissionPromptPending = true;
+            try {
+                stream = await navigator.mediaDevices.getUserMedia({
+                    audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+                });
+            } finally {
+                voicePermissionPromptPending = false;
+                hiddenAt = 0;
+            }
             voiceNoteStream = stream;
             stream.getAudioTracks().forEach(track => {
                 track.enabled = false;
@@ -2381,6 +2394,9 @@ bindVoiceNoteButton();
 
 // Release the cached microphone stream when the Mini App page is actually closed.
 window.addEventListener("pagehide", () => {
+    // Ignore transient page lifecycle changes while Android/Telegram shows
+    // the native permission sheet. It is not a real Mini App shutdown.
+    if (voicePermissionPromptPending) return;
     if (voiceNoteMaxTimer) clearTimeout(voiceNoteMaxTimer);
     voiceNoteMaxTimer = null;
     if (voiceNoteRecorder && voiceNoteRecorder.state === "recording") {
