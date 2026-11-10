@@ -1950,3 +1950,31 @@ svg { display: block; flex-shrink: 0; }
 @media(max-width:360px) {
     #board-style-live { min-height:38px; margin:0 auto 5px; font-size:11px; }
 }
+
+
+/* Start/exit squares are player-coloured, not neutral white. */
+#ludo-board .cell.start-green { background:linear-gradient(145deg,#BDE8D0,#75C99B) !important; border:1px solid #4C9F72; box-shadow:inset 0 1px 0 rgba(255,255,255,.9),inset 0 -2px 4px rgba(34,105,67,.18),0 1px 2px rgba(0,0,0,.12); }
+#ludo-board .cell.start-yellow { background:linear-gradient(145deg,#F8E7B2,#E8C96F) !important; border:1px solid #C6A34D; box-shadow:inset 0 1px 0 rgba(255,255,255,.9),inset 0 -2px 4px rgba(142,105,25,.16),0 1px 2px rgba(0,0,0,.12); }
+#ludo-board .cell.start-blue { background:linear-gradient(145deg,#C5DDF4,#82B5E4) !important; border:1px solid #6796C2; box-shadow:inset 0 1px 0 rgba(255,255,255,.9),inset 0 -2px 4px rgba(37,83,128,.16),0 1px 2px rgba(0,0,0,.12); }
+#ludo-board .cell.start-red { background:linear-gradient(145deg,#F2C9C5,#D98D87) !important; border:1px solid #B86C66; box-shadow:inset 0 1px 0 rgba(255,255,255,.9),inset 0 -2px 4px rgba(112,42,38,.16),0 1px 2px rgba(0,0,0,.12); }
+
+/* Neon becomes softer and more refined, while glossy highlights and depth remain. */
+#ludo-board[data-theme="neon"] .board-art {
+    filter:brightness(.84) saturate(.56) contrast(1.08) drop-shadow(0 3px 8px rgba(0,0,0,.28));
+}
+#ludo-board[data-theme="neon"] .cell.track-cell:not(.home-cell) {
+    background:linear-gradient(145deg,rgba(255,255,255,.99),rgba(225,231,240,.96));
+    border:1px solid rgba(42,52,68,.28);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.98),inset 0 -2px 3px rgba(47,59,78,.12),0 1px 2px rgba(0,0,0,.18);
+}
+#ludo-board[data-theme="neon"] .cell.home-green { background:linear-gradient(145deg,#BDE8D0,#70C796); border:1px solid #4F9F73; box-shadow:inset 0 1px 0 rgba(255,255,255,.78),inset 0 -3px 5px rgba(24,94,55,.20),0 1px 3px rgba(0,0,0,.18); }
+#ludo-board[data-theme="neon"] .cell.home-yellow { background:linear-gradient(145deg,#F8E7B2,#E7C76A); border:1px solid #C5A34D; box-shadow:inset 0 1px 0 rgba(255,255,255,.78),inset 0 -3px 5px rgba(117,83,16,.18),0 1px 3px rgba(0,0,0,.18); }
+#ludo-board[data-theme="neon"] .cell.home-blue { background:linear-gradient(145deg,#C5DDF4,#80B2E1); border:1px solid #6795C0; box-shadow:inset 0 1px 0 rgba(255,255,255,.78),inset 0 -3px 5px rgba(35,76,119,.18),0 1px 3px rgba(0,0,0,.18); }
+#ludo-board[data-theme="neon"] .cell.home-red { background:linear-gradient(145deg,#F2C9C5,#D88D86); border:1px solid #B86C66; box-shadow:inset 0 1px 0 rgba(255,255,255,.78),inset 0 -3px 5px rgba(105,40,35,.18),0 1px 3px rgba(0,0,0,.18); }
+#ludo-board[data-theme="neon"] .piece::before {
+    box-shadow:0 0 7px var(--player-color),0 0 15px color-mix(in srgb,var(--player-color) 42%,transparent),inset 0 1px 2px rgba(255,255,255,.75);
+    background:radial-gradient(circle at 35% 25%,rgba(255,255,255,.55),rgba(255,255,255,.12) 45%,transparent 72%);
+}
+#ludo-board[data-theme="neon"] .piece::after {
+    filter:drop-shadow(0 3px 5px rgba(0,0,0,.62)) drop-shadow(0 0 3px color-mix(in srgb,var(--player-color) 40%,transparent));
+}
