@@ -694,10 +694,12 @@ async def cb_join_game(call: types.CallbackQuery):
         if len(room["players"]) >= 4:
             await call.answer("Все места уже заняты.", show_alert=True)
             return
+        # aiogram User has no photo_url attribute. Reuse the profile photo
+        # already stored from signed Mini App initData instead.
         profile = await get_user(
             uid,
             call.from_user.first_name or "Игрок",
-            call.from_user.photo_url or ""
+            ""
         )
         taken = {p["color"] for p in room["players"]}
         if room["game_mode"] == "TEAM":
