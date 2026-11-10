@@ -1212,6 +1212,8 @@ function applyBoardTheme(id) {
     selectedBoardStyle = id;
     if (!BoardThemes.has(id)) id = "classic";
     const board = document.getElementById("ludo-board");
+    const classicBrand = document.getElementById("classic-board-brand");
+    if (classicBrand) classicBrand.hidden = id !== "classic";
     if (board) {
         board.dataset.theme = id;
         Object.entries(BoardThemes.vars(id)).forEach(([k, v]) => board.style.setProperty(k, v));
@@ -1228,6 +1230,8 @@ function drawBoard(roomData) {
     if(!board) return;
     const state = roomData || latestRoomState;
     board.dataset.theme = boardTheme;
+    const classicBrand = document.getElementById("classic-board-brand");
+    if (classicBrand) classicBrand.hidden = boardTheme !== "classic";
     Object.entries(BoardThemes.vars(boardTheme)).forEach(([key, value]) => board.style.setProperty(key, value));
     board.innerHTML = buildBoardArt();
     const grid = document.createElement("div");
