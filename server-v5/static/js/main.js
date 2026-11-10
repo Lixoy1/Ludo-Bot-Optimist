@@ -612,7 +612,7 @@ async function handleMessage(data) {
 
     if (data.players) {
         if (latestRoomState) latestRoomState.players = data.players;
-        const me = data.players.find(p => p.user_id === userId);
+        const me = data.players.find(p => String(p.user_id) === String(userId));
         if(me) {
             myColor = me.color;
             myTeam = me.team;
@@ -747,8 +747,21 @@ async function handleMessage(data) {
             await renderPieces(data.board_state);
             updateTurnUI(data.turn, data.active_user_id, data.players);
             startLocalTimer(data.turn, data.timer || turnSeconds);
+            if (data.dice !== null && data.dice !== undefined) {
+                showDiceResult(data.turn, data.dice);
+                if (String(data.turn) === String(myColor)) {
+                    setDiceComment("ВЫПАЛО " + data.dice, "Выбери подсвеченную фишку.");
+                    setTimeout(() => highlightValidPieces(data.turn, data.dice, data.board_state), 150);
+                } else {
+                    setDiceComment("ХОД ИГРОКА", "Ожидаем, пока игрок передвинет фишку.");
+                }
+            }
             if (data.turn === myColor) { playSkinSound(myColor, 'turn'); hapticImpact('rigid'); }
+        } else if (data.event === "DICE_REJECTED") {
+            diceRequestPending = false;
+            showChatNotification("", data.message || "Сейчас нельзя бросить кубик.", null, 2500);
         } else if (data.event === "DICE_RESULT") {
+            diceRequestPending = false;
             showDiceResult(data.color, data.value);
             if (data.auto_start && !data.auto_start_complete) {
                 setTurnComment("Первый запуск", "Автоматически бросаем кубик до первой шестёрки.", (latestRoomState?.players || []).length);
@@ -766,6 +779,7 @@ async function handleMessage(data) {
                 setTimeout(() => highlightValidPieces(data.color, data.value, data.board_state), 150);
             }
         } else if (data.event === "TURN_CHANGED") {
+            diceRequestPending = false;
             currentValidPieces = [];
             updateTurnUI(data.active_color, data.active_user_id, data.players || (latestRoomState && latestRoomState.players));
             if (data.active_color === myColor && activeTurnColor !== data.active_color) {
@@ -1001,9 +1015,21 @@ function startGame() {
     if(ws) ws.send(JSON.stringify({ action: "START_GAME", user_id: userId }));
 }
 
+let diceRequestPending = false;
+
 function rollDice() {
-    hapticImpact('medium');   // tas taslaw — seziletuǵın soqqı
-    if(ws) ws.send(JSON.stringify({ action: "ROLL_DICE", user_id: userId }));
+    if (!ws || ws.readyState !== WebSocket.OPEN || diceRequestPending) return;
+    if (myColor && activeTurnColor && String(myColor) !== String(activeTurnColor)) return;
+    if (currentValidPieces && currentValidPieces.length) return;
+    diceRequestPending = true;
+    hapticImpact('medium');
+    try {
+        ws.send(JSON.stringify({ action: "ROLL_DICE", user_id: userId }));
+    } catch (error) {
+        diceRequestPending = false;
+        console.error("[DICE_SEND_ERROR]", error);
+        showChatNotification("", "Не удалось отправить бросок. Проверь соединение.", null, 2500);
+    }
 }
 
 function initBoardUI(data) {
