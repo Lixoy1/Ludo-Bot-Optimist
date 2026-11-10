@@ -1,4 +1,4 @@
-import os, random, string, asyncio, sqlite3, hmac, hashlib, json, time, base64, secrets
+import os, random, string, asyncio, sqlite3, hmac, hashlib, json, time, base64, secrets, re
 from urllib.parse import parse_qsl
 from contextlib import asynccontextmanager
 from fastapi import FastAPI, WebSocket, WebSocketDisconnect, Request, HTTPException
