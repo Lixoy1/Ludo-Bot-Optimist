@@ -917,7 +917,7 @@ function updateLobbyCountdown(deadline, playerCount, status) {
     const panel = document.getElementById("lobby-countdown-panel");
     const timer = document.getElementById("lobby-countdown");
     if (!panel || !timer) return;
-    if (status !== "WAITING" || !playerCount) {
+    if (status !== "WAITING" || Number(playerCount || 0) < 2) {
         panel.hidden = true;
         if (lobbyCountdownInterval) clearInterval(lobbyCountdownInterval);
         lobbyCountdownInterval = null;
@@ -926,8 +926,9 @@ function updateLobbyCountdown(deadline, playerCount, status) {
     panel.hidden = false;
     if (lobbyCountdownInterval) clearInterval(lobbyCountdownInterval);
     const serverDeadline = Number(deadline || 0) * 1000;
+    const fallbackDeadline = Date.now() + 15000;
     const tick = () => {
-        const left = serverDeadline > 0 ? Math.max(0, Math.ceil((serverDeadline - Date.now()) / 1000)) : 60;
+        const left = serverDeadline > 0 ? Math.max(0, Math.ceil((serverDeadline - Date.now()) / 1000)) : Math.max(0, Math.ceil((fallbackDeadline - Date.now()) / 1000));
         timer.textContent = String(Math.floor(left / 60)).padStart(2, "0") + ":" + String(left % 60).padStart(2, "0");
         const label = panel.querySelector(".lobby-countdown-label");
         if (label) label.textContent = left === 0 ? "ЗАПУСКАЕМ ИГРУ" : "АВТОСТАРТ ЧЕРЕЗ";
@@ -977,7 +978,7 @@ function updateRoomUI(data) {
     const botStartBtn = document.getElementById("lobby-start-bots");
     const botStartNote = document.getElementById("lobby-start-note");
     if (botStartBtn) {
-        botStartBtn.hidden = !(isAlreadyIn && data.status === "WAITING");
+        botStartBtn.hidden = !(isAlreadyIn && data.status === "WAITING" && data.players.length < 2);
         botStartBtn.disabled = false;
         botStartBtn.textContent = "🤖 НАЧАТЬ ИГРУ С БОТАМИ";
         botStartBtn.onclick = () => {
@@ -994,7 +995,7 @@ function updateRoomUI(data) {
             }));
         };
     }
-    if (botStartNote) botStartNote.hidden = !(isAlreadyIn && data.status === "WAITING");
+    if (botStartNote) botStartNote.hidden = !(isAlreadyIn && data.status === "WAITING" && data.players.length < 2);
 
     // Spectator join control
     let joinBtn = document.getElementById("lobby-join-btn");
