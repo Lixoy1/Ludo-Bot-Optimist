@@ -225,7 +225,13 @@ let selectedCharacterId = localStorage.getItem("ludo_match_character") || "optim
 if (!LUDO_CHARACTERS.some(([id]) => id === selectedCharacterId)) selectedCharacterId = "optimist";
 let joinConfirmed = false;
 let joinRequestPending = false;
+let joinRequestTimeout = null;
 let joinedThisRoom = false;
+
+function clearJoinRequestTimeout() {
+    if (joinRequestTimeout) clearTimeout(joinRequestTimeout);
+    joinRequestTimeout = null;
+}
 let characterPrefsLoaded = false;
 
 function renderCharacterOptions() {
@@ -511,6 +517,7 @@ function connectWebSocket() {
         voiceSessionToken = "";
         stopHeartbeat();
         joinRequestPending = false;
+        clearJoinRequestTimeout();
         if (event.code === 4403 || event.code === 4404) {
             console.warn("WS: terminal room/auth error; automatic reconnect disabled.", event.code);
             diceRequestPending = false;
@@ -675,6 +682,7 @@ async function handleMessage(data) {
 
         if (data.event === "ROOM_NOT_FOUND") {
             joinRequestPending = false;
+            clearJoinRequestTimeout();
             joinConfirmed = false;
             const title = document.getElementById("room-title");
             if (title) title.textContent = "Комната " + (cleanRoomCode || "неизвестна");
@@ -692,6 +700,7 @@ async function handleMessage(data) {
             showChatNotification("", data.message || "Запускаем игру…", null, 2500);
         } else if (data.event === "AUTH_ERROR") {
             joinRequestPending = false;
+            clearJoinRequestTimeout();
             const quickStart = document.getElementById("lobby-start-bots");
             if (quickStart) {
                 quickStart.disabled = false;
@@ -729,6 +738,7 @@ async function handleMessage(data) {
                 joinConfirmed = true;
                 localStorage.setItem("ludo_last_joined_room", cleanRoomCode);
                 joinRequestPending = false;
+                clearJoinRequestTimeout();
             }
             setTurnSeconds(data.game_mode);
             updateRoomUI(data);
@@ -788,6 +798,7 @@ async function handleMessage(data) {
                 localStorage.setItem("ludo_last_joined_room", cleanRoomCode);
             }
             joinRequestPending = false;
+            clearJoinRequestTimeout();
             const picker = document.getElementById("character-select-overlay");
             if (picker) picker.hidden = true;
             setTurnSeconds(data.game_mode);
@@ -913,9 +924,19 @@ function autoJoinGame() {
     }
     try {
         ws.send(JSON.stringify(payload));
+        clearJoinRequestTimeout();
+        joinRequestTimeout = setTimeout(() => {
+            if (!joinRequestPending) return;
+            joinRequestPending = false;
+            const status = document.getElementById("character-select-error");
+            if (status) status.textContent = "Сервер не подтвердил вход. Проверьте соединение и нажмите подтверждение ещё раз.";
+            showChatNotification("", "Не удалось подтвердить вход в комнату. Можно попробовать ещё раз.", null, 6000);
+        }, 10000);
     } catch (error) {
         joinRequestPending = false;
+        clearJoinRequestTimeout();
         console.error("[LUDO_JOIN_SEND_ERROR]", error);
+        showChatNotification("", "Не удалось отправить запрос на вход. Проверьте соединение.", null, 5000);
     }
 }
 
