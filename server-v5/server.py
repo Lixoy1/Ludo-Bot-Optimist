@@ -412,13 +412,15 @@ async def cb_start_game(call: types.CallbackQuery):
     await call.answer("Игра начинается!")
 
 @dp.my_chat_member()
-async def on_bot_added(event: types.ChatMemberUpdated):
+async def on_bot_membership_changed(event: types.ChatMemberUpdated):
     old_status = event.old_chat_member.status
     new_status = event.new_chat_member.status
+    chat = event.chat
+    if chat.type not in ("group", "supergroup"):
+        return
+
+    # Bot was added to a group: explain setup and whether admin rights are present.
     if new_status in ("member", "administrator") and old_status in ("left", "kicked"):
-        chat = event.chat
-        if chat.type not in ("group", "supergroup"):
-            return
         is_admin = new_status == "administrator"
         message = (
             "🎲 **Optimist Ludo добавлен в группу!**\\n\\n"
@@ -433,21 +435,20 @@ async def on_bot_added(event: types.ChatMemberUpdated):
             await event.bot.send_message(chat.id, message, parse_mode="Markdown")
         except Exception as exc:
             print(f"[BOT_ADDED_NOTICE] chat={chat.id} error={exc}")
+        return
 
-@dp.my_chat_member()
-async def on_bot_membership_changed(event: types.ChatMemberUpdated):
-    if event.new_chat_member.status == "administrator" and event.old_chat_member.status != "administrator":
-        if event.chat.type in ("group", "supergroup"):
-            try:
-                await event.bot.send_message(
-                    event.chat.id,
-                    "✅ **Права администратора получены.**\\n"
-                    "Теперь можно создавать комнаты командой /game. "
-                    "Для обычной партии дополнительных разрешений не требуется.",
-                    parse_mode="Markdown"
-                )
-            except Exception as exc:
-                print(f"[BOT_ADMIN_NOTICE] chat={event.chat.id} error={exc}")
+    # Bot was promoted later.
+    if new_status == "administrator" and old_status != "administrator":
+        try:
+            await event.bot.send_message(
+                chat.id,
+                "✅ **Права администратора получены.**\\n"
+                "Теперь можно создавать комнаты командой /game. "
+                "Для обычной партии дополнительных разрешений не требуется.",
+                parse_mode="Markdown"
+            )
+        except Exception as exc:
+            print(f"[BOT_ADMIN_NOTICE] chat={chat.id} error={exc}")
 
 # ─── FastAPI Сервер ───
 @asynccontextmanager
