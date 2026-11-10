@@ -685,14 +685,19 @@ async def schedule_autostart(room):
             room["start_task"] = None
 
 def ensure_lobby_timer(room):
-    # No visible "Start" stage: one player waits; the second player starts
-    # the 15-second countdown; four players start the match immediately.
-    if room.get("status") != "WAITING" or len(room.get("players", [])) < 2:
+    # No visible "Start" stage: one player waits; the second starts a
+    # 15-second countdown; four players start the match immediately.
+    if room.get("status") != "WAITING":
         return
-    if room.get("lobby_deadline") is None:
-        room["lobby_deadline"] = time.time() + 15
     task = room.get("start_task")
+    if len(room.get("players", [])) < 2:
+        room["lobby_deadline"] = None
+        if task and not task.done():
+            task.cancel()
+        room["start_task"] = None
+        return
     if task is None or task.done():
+        room["lobby_deadline"] = time.time() + 15
         room["start_task"] = asyncio.create_task(schedule_autostart(room))
 
 async def next_turn(room):
@@ -1240,11 +1245,14 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                     if room["status"] == "WAITING":
                         room["players"] = [p for p in room["players"] if p["user_id"] != uid]
                         room["sockets"].pop(uid, None)
-                        # Если игроков < 2, отменяем старт
-                        if len(room["players"]) < 2 and room["start_task"]:
-                            room["start_task"].cancel()
+                        # If fewer than two players remain, cancel the countdown.
+                        if len(room["players"]) < 2:
+                            task = room.get("start_task")
+                            if task and not task.done():
+                                task.cancel()
                             room["start_task"] = None
-                        
+                            room["lobby_deadline"] = None
+
                         await broadcast(room, {
                             "event": "ROOM_STATE",
                             "status": "WAITING",
