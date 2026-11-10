@@ -27,13 +27,19 @@ jobs:
           python - <<'PY'
           from pathlib import Path
           import re
-          html = Path("server-v5/cabinet.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
-          if not scripts:
-              raise SystemExit("cabinet inline script not found")
-          Path("/tmp/cabinet-inline.js").write_text("\n".join(scripts), encoding="utf-8")
+          for page in ("index.html", "cabinet.html"):
+              html = Path("server-v5", page).read_text(encoding="utf-8")
+              scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
+              if not scripts:
+                  raise SystemExit(f"{page} inline script not found")
+              Path(f"/tmp/{page}-inline.js").write_text("\n".join(scripts), encoding="utf-8")
           PY
-          node --check /tmp/cabinet-inline.js
+          node --check /tmp/index.html-inline.js
+          node --check /tmp/cabinet.html-inline.js
+      - name: Test AI opponents and opening dice flow
+        run: |
+          cd server-v5
+          APP_ENV=development DATABASE_PATH=/tmp/optimist-ludo-bot-tests.db python -m unittest test_game_bots.py -v
       - name: Smoke-test FastAPI routes
         run: |
           cd server-v5
