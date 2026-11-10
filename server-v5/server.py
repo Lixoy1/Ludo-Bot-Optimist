@@ -750,6 +750,14 @@ async def cb_join_game(call: types.CallbackQuery):
             room["board_state"][color] = [0, -1, -1, -1]
         ensure_lobby_timer(room)
         await sync_tg_message(room)
+        await broadcast(room, {
+            "event": "ROOM_STATE",
+            "status": "WAITING",
+            "game_mode": room["game_mode"],
+            "players": room["players"],
+            "lobby_deadline": room.get("lobby_deadline"),
+            "creator_user_id": room.get("creator_user_id")
+        })
         if len(room["players"]) >= 4:
             task = room.get("start_task")
             if task and not task.done():
@@ -1092,8 +1100,8 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                     host_id = str(room.get("creator_user_id") or (room["players"][0]["user_id"] if room["players"] else ""))
                     if room["status"] != "WAITING":
                         await websocket.send_json({"event": "GAME_ERROR", "message": "Игра уже началась"})
-                    elif act == "START_WITH_BOTS" and (not seated or (host_id and str(uid) != host_id)):
-                        await websocket.send_json({"event": "GAME_ERROR", "message": "Быстрый старт доступен создателю комнаты"})
+                    elif act == "START_WITH_BOTS" and not seated:
+                        await websocket.send_json({"event": "GAME_ERROR", "message": "Сначала присоединитесь к комнате"})
                     elif act == "START_GAME" and (not room["players"] or str(room["players"][0]["user_id"]) != str(uid)):
                         await websocket.send_json({"event": "GAME_ERROR", "message": "Начать игру может только создатель комнаты"})
                     elif not room["players"]:
@@ -1121,8 +1129,12 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                             "event": "ROOM_STATE",
                             "status": "WAITING",
                             "game_mode": room["game_mode"],
-                            "players": room["players"]
+                            "players": room["players"],
+                            "lobby_deadline": room.get("lobby_deadline"),
+                            "creator_user_id": room.get("creator_user_id")
                         })
+                        if not room["players"]:
+                            room["lobby_deadline"] = None
                         await sync_tg_message(room)
                     elif room["status"] == "PLAYING":
                         me = next((p for p in room["players"] if p["user_id"] == uid), None)
