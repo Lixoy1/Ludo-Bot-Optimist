@@ -605,8 +605,16 @@ bot = Bot(token=BOT_TOKEN) if BOT_TOKEN != BOT_TOKEN_PLACEHOLDER else None
 dp = Dispatcher()
 
 @dp.message(CommandStart())
+async def cmd_start(message: types.Message):
+    await send_start_menu(message)
+
+
 @dp.message(Command("game", "play", "ludo"))
 async def cmd_game(message: types.Message):
+    await send_start_menu(message)
+
+
+async def send_start_menu(message: types.Message):
     # A group invite is opened in the private bot chat first. Telegram supplies
     # signed WebApp initData only when the WebApp is launched from this button.
     parts = (message.text or "").split(maxsplit=1)
