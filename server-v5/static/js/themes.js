@@ -1,43 +1,9 @@
 (function () {
-    const THEMES = {
-        neon: {
-            img: "/static/img/board-neon.png",
-            bg: "#0B0E1F",
-            ring: "rgba(255, 255, 255, 0.85)",
-            ringHi: "#00DFFF",
-            dims: { red: "rgba(255,65,112,0.4)", green: "rgba(44,245,158,0.4)", yellow: "rgba(255,225,74,0.4)", blue: "rgba(63,182,255,0.4)" }
-        },
-        royal: {
-            img: "/static/img/board-royal.png",
-            bg: "#121B33",
-            ring: "rgba(255, 243, 196, 0.9)",
-            ringHi: "#00DFFF",
-            dims: { red: "rgba(229,70,62,0.4)", green: "rgba(34,164,93,0.4)", yellow: "rgba(245,181,33,0.4)", blue: "rgba(45,127,224,0.4)" }
-        }
-    };
-
-    function art(id) {
-        const th = THEMES[id] || THEMES.neon;
-        return `<img class="board-art" src="${th.img}" alt="Board" style="position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:0;">`;
-    }
-
-    function vars(id) {
-        const th = THEMES[id] || THEMES.neon;
-        return {
-            "--board-bg": th.bg,
-            "--dim-red": th.dims.red,
-            "--dim-green": th.dims.green,
-            "--dim-yellow": th.dims.yellow,
-            "--dim-blue": th.dims.blue,
-            "--ring": th.ring,
-            "--ring-hi": th.ringHi
-        };
-    }
-
-    window.BoardThemes = {
-        ids: Object.keys(THEMES),
-        has: (id) => id in THEMES,
-        art,
-        vars
-    };
+ const THEMES = {
+  neon: { img:"/static/img/board-neon.png", bg:"#0B0E1F", ring:"rgba(255,255,255,.85)", ringHi:"#00DFFF", dims:{red:"rgba(255,65,112,.4)",green:"rgba(44,245,158,.4)",yellow:"rgba(255,225,74,.4)",blue:"rgba(63,182,255,.4)"} },
+  classic: { bg:"#F2EFE7", ring:"rgba(70,78,88,.7)", ringHi:"#596B7A", dims:{red:"rgba(190,75,69,.18)",green:"rgba(65,137,91,.18)",yellow:"rgba(197,157,57,.18)",blue:"rgba(69,119,169,.18)"} }
+ };
+ function art(id) { if (id === "classic") return "<svg class=\"board-art board-art-classic\" viewBox=\"0 0 600 600\" aria-hidden=\"true\" style=\"position:absolute;inset:0;width:100%;height:100%;pointer-events:none;z-index:0\"><rect width=\"600\" height=\"600\" rx=\"18\" fill=\"#F2EFE7\"/><rect width=\"240\" height=\"240\" rx=\"10\" fill=\"#DCEBDD\"/><rect x=\"360\" width=\"240\" height=\"240\" rx=\"10\" fill=\"#F1E8C9\"/><rect x=\"360\" y=\"360\" width=\"240\" height=\"240\" rx=\"10\" fill=\"#DCE7F1\"/><rect y=\"360\" width=\"240\" height=\"240\" rx=\"10\" fill=\"#F0DEDC\"/><g fill=\"none\" stroke=\"#A6A39A\" stroke-width=\"3\"><rect x=\"12\" y=\"12\" width=\"216\" height=\"216\" rx=\"14\"/><rect x=\"372\" y=\"12\" width=\"216\" height=\"216\" rx=\"14\"/><rect x=\"372\" y=\"372\" width=\"216\" height=\"216\" rx=\"14\"/><rect x=\"12\" y=\"372\" width=\"216\" height=\"216\" rx=\"14\"/></g><path d=\"M240 240H360V360H240Z\" fill=\"#E7E2D7\" stroke=\"#B8B2A7\" stroke-width=\"3\"/><path d=\"M240 240L300 300L360 240Z\" fill=\"#DCEBDD\"/><path d=\"M360 240L300 300L360 360Z\" fill=\"#F1E8C9\"/><path d=\"M360 360L300 300L240 360Z\" fill=\"#DCE7F1\"/><path d=\"M240 360L300 300L240 240Z\" fill=\"#F0DEDC\"/></svg>"; const th=THEMES[id]||THEMES.neon; return '<img class="board-art" src="' + th.img + '" alt="Board" style="position:absolute;inset:0;width:100%;height:100%;object-fit:fill;pointer-events:none;z-index:0;">'; }
+ function vars(id) { const th=THEMES[id]||THEMES.neon; return {"--board-bg":th.bg,"--dim-red":th.dims.red,"--dim-green":th.dims.green,"--dim-yellow":th.dims.yellow,"--dim-blue":th.dims.blue,"--ring":th.ring,"--ring-hi":th.ringHi}; }
+ window.BoardThemes={ids:Object.keys(THEMES),has:id=>id in THEMES,art,vars};
 })();
