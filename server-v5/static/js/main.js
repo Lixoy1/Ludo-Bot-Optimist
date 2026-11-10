@@ -871,12 +871,38 @@ function updateRoomUI(data) {
     }
 
     const startBtn = document.getElementById("start-btn");
-    if (startBtn) {
-        startBtn.style.display = "none";
-    }
-    const isAlreadyIn = data.players.some(p => p.user_id === userId);
+    if (startBtn) startBtn.style.display = "none";
+    const isAlreadyIn = data.players.some(p => String(p.user_id) === String(userId));
+    const controls = document.getElementById("controls");
 
-    // Spektatorlar ushın qosılıw knopkası
+    // Quick-start control: visible to seated players while the room is waiting.
+    let botStartBtn = document.getElementById("lobby-start-bots");
+    if (isAlreadyIn && data.status === "WAITING") {
+        if (!botStartBtn && controls) {
+            botStartBtn = document.createElement("button");
+            botStartBtn.id = "lobby-start-bots";
+            botStartBtn.type = "button";
+            botStartBtn.className = "btn btn-primary lobby-start-bots";
+            botStartBtn.textContent = "🤖 Начать игру с ботами";
+            controls.appendChild(botStartBtn);
+        }
+        if (botStartBtn) {
+            botStartBtn.disabled = false;
+            botStartBtn.onclick = () => {
+                if (!ws || ws.readyState !== WebSocket.OPEN) {
+                    showChatNotification("", "Нет соединения с сервером. Подождите подключения.", null, 4000);
+                    return;
+                }
+                botStartBtn.disabled = true;
+                botStartBtn.textContent = "⏳ Запускаем игру…";
+                ws.send(JSON.stringify({ action: "START_GAME", user_id: userId }));
+            };
+        }
+    } else if (botStartBtn) {
+        botStartBtn.remove();
+    }
+
+    // Spectator join control
     let joinBtn = document.getElementById("lobby-join-btn");
     if (!joinBtn && !isAlreadyIn && data.status === "WAITING" && data.players.length < 4) {
         joinBtn = document.createElement("button");
@@ -884,7 +910,7 @@ function updateRoomUI(data) {
         joinBtn.className = "btn btn-primary lobby-join-btn";
         joinBtn.innerText = tr("join_game");
         joinBtn.onclick = autoJoinGame;
-        document.getElementById("controls").appendChild(joinBtn);
+        controls.appendChild(joinBtn);
     } else if (joinBtn && (isAlreadyIn || data.status !== "WAITING" || data.players.length >= 4)) {
         joinBtn.remove();
     }

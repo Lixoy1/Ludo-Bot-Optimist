@@ -1744,3 +1744,6 @@ svg { display: block; flex-shrink: 0; }
     .turn-commentary { padding: 8px 9px; gap: 8px; }
     .turn-commentary-icon { flex-basis: 36px; width: 36px; height: 36px; }
 }
+
+.lobby-start-bots{display:block;width:100%;min-height:54px;margin:12px 0 6px;border:1px solid rgba(255,220,140,.65);border-radius:15px;background:linear-gradient(110deg,#f0c45e,#ffe7a4);color:#171727;font-weight:900;font-size:15px;box-shadow:0 7px 22px rgba(240,196,94,.18);cursor:pointer}
+.lobby-start-bots:disabled{opacity:.65;cursor:wait}
