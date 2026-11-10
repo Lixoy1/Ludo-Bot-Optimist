@@ -680,10 +680,7 @@ async function handleMessage(data) {
             if ((data.players || []).some(p => String(p.user_id) === String(userId))) {
                 joinedThisRoom = true;
                 joinRequestPending = false;
-                // Keep the character picker open until the player explicitly confirms.
-                // Group registration already reserved the seat; JOIN_GAME updates its skin.
-                const picker = document.getElementById("character-select-overlay");
-                if (picker && joinConfirmed) picker.hidden = true;
+                // The saved character is applied automatically; no blocking picker step.
             }
             setTurnSeconds(data.game_mode);
             updateRoomUI(data);
@@ -832,22 +829,28 @@ async function handleMessage(data) {
 }
 
 function autoJoinGame() {
-    if (!ws || ws.readyState !== WebSocket.OPEN) return;
-    if (!joinConfirmed) {
-        showCharacterSelection();
-        return;
-    }
-    if (joinRequestPending) return;
+    if (!ws || ws.readyState !== WebSocket.OPEN || joinRequestPending) return;
+    // Enter immediately. The cabinet's saved character remains the default;
+    // only send a match override when the player explicitly saved one locally.
     joinRequestPending = true;
-    ws.send(JSON.stringify({
+    const payload = {
         action: "JOIN_GAME",
         init_data: tg.initData,
         user_id: userId,
         name: userName,
         photo_url: userPhotoUrl,
-        team: teamParam,
-        skin: selectedCharacterId
-    }));
+        team: teamParam
+    };
+    const savedCharacter = localStorage.getItem("ludo_match_character");
+    if (savedCharacter && LUDO_CHARACTERS.some(([id]) => id === savedCharacter)) {
+        payload.skin = savedCharacter;
+    }
+    try {
+        ws.send(JSON.stringify(payload));
+    } catch (error) {
+        joinRequestPending = false;
+        console.error("[LUDO_JOIN_SEND_ERROR]", error);
+    }
 }
 
 function formatName(name) {
