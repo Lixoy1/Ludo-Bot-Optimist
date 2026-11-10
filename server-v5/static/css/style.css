@@ -1566,3 +1566,63 @@ svg { display: block; flex-shrink: 0; }
 @keyframes voice-record-pulse { from { box-shadow: 0 0 0 0 rgba(217,54,77,.25); } to { box-shadow: 0 0 0 7px rgba(217,54,77,.2); } }
 .voice-message-audio { display: block; width: min(260px, 100%); height: 38px; margin-top: 8px; }
 .voice-message-caption { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
+
+
+/* Player portrait captions and turn commentary, adapted from the first Ludo lobby UI. */
+.player-comment {
+    margin-top: 3px;
+    font-size: 10px;
+    line-height: 1.15;
+    font-weight: 700;
+    letter-spacing: .035em;
+    color: var(--text-3);
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.player-card.is-active .player-comment { color: var(--pc); }
+.player-card.is-bot .avatar { border: 1px solid color-mix(in srgb, var(--pc) 68%, white); }
+.player-card.is-bot .player-name::after {
+    content: " · AI";
+    color: var(--text-3);
+    font-size: 9px;
+}
+.center-dice-dock {
+    width: 100%;
+    max-width: 420px;
+    min-height: 86px;
+    margin: 14px auto 0;
+    padding: 10px 14px;
+    gap: 14px;
+    justify-content: flex-start;
+    border: 1px solid var(--line-strong);
+    border-radius: 20px;
+    background: linear-gradient(135deg, rgba(26,34,54,.94), rgba(12,17,30,.98));
+    box-shadow: 0 12px 30px -18px rgba(0,0,0,.85), inset 0 1px 0 rgba(255,255,255,.06);
+}
+.dice-comment {
+    min-width: 0;
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 4px;
+    text-align: left;
+}
+.dice-comment-title {
+    color: var(--gold, #f5c542);
+    font-size: 10px;
+    font-weight: 900;
+    letter-spacing: .14em;
+    text-transform: uppercase;
+}
+.dice-comment-text {
+    color: var(--text-2);
+    font-size: 12px;
+    line-height: 1.35;
+    font-weight: 600;
+}
+@media (max-width: 360px) {
+    .center-dice-dock { padding: 8px 9px; gap: 9px; }
+    .dice-comment-text { font-size: 11px; }
+    .player-comment { font-size: 9px; }
+}

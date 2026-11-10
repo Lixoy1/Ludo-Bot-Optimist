@@ -683,12 +683,22 @@ async function handleMessage(data) {
             if (data.turn === myColor) { playSkinSound(myColor, 'turn'); hapticImpact('rigid'); }
         } else if (data.event === "DICE_RESULT") {
             showDiceResult(data.color, data.value);
-            startLocalTimer(data.color, turnSeconds);
-            setTimeout(() => {
-                highlightValidPieces(data.color, data.value, data.board_state);
-            }, 150);
+            if (data.auto_start && !data.auto_start_complete) {
+                setDiceComment("АВТОСТАРТ · ИЩЕМ ШЕСТЁРКУ", `Выпало ${data.value}. Кубик бросается дальше автоматически.`);
+            } else if (data.is_bot) {
+                setDiceComment("ХОД БОТА", `Бросок: ${data.value}. Бот выбирает фишку.`);
+            } else if (data.auto_start_complete) {
+                setDiceComment("ШЕСТЁРКА!", "Фишка выходит из базы. Выбери одну из подсвеченных фишек.");
+                startLocalTimer(data.color, data.timer || turnSeconds);
+                setTimeout(() => highlightValidPieces(data.color, data.value, data.board_state), 150);
+            } else {
+                setDiceComment(`ВЫПАЛО ${data.value}`, "Выбери подсвеченную фишку.");
+                startLocalTimer(data.color, data.timer || turnSeconds);
+                setTimeout(() => highlightValidPieces(data.color, data.value, data.board_state), 150);
+            }
         } else if (data.event === "TURN_CHANGED") {
             currentValidPieces = [];
+            updateTurnUI(data.active_color, data.active_user_id, data.players || (latestRoomState && latestRoomState.players));
             if (data.active_color === myColor && activeTurnColor !== data.active_color) {
                 playSkinSound(myColor, 'turn');
                 hapticImpact('rigid');   // sizdiń náwbetińiz
@@ -702,6 +712,9 @@ async function handleMessage(data) {
         } else if (data.event === "PIECE_MOVED") {
             currentValidPieces = [];
             await renderPieces(data.board_state);
+            if (data.move_info && data.move_info.is_bot) {
+                setDiceComment("ХОД БОТА", "Соперник передвинул фишку.");
+            }
             if(data.winner_info) {
                 celebrateWinner(data.winner_info);
             }
@@ -897,14 +910,12 @@ function initBoardUI(data) {
             card.querySelector('.player-name').innerText = formatName(p.name);
             const avatar = card.querySelector('.avatar');
             if (avatar) {
-                if (p.photo_url) {
-                    avatar.style.backgroundImage = `url("${p.photo_url}")`;
-                    avatar.textContent = "";
-                } else {
-                    avatar.style.backgroundImage = "";
-                    avatar.textContent = initialOf(p.name);
-                }
+                avatar.style.backgroundImage = characterImageFor(p);
+                avatar.textContent = "";
             }
+            const note = card.querySelector(".player-comment");
+            if (note) note.textContent = p.is_bot ? "БОТ-СОПЕРНИК" : "В ИГРЕ";
+            if (card) card.classList.toggle("is-bot", !!p.is_bot);
         }
         // Kubik hám kartochka oyınshınıń tas skini menen birdey stilde (Taj — avatar ústinde taj)
         const dice = document.getElementById(`dice-${p.color}`);
@@ -1234,6 +1245,19 @@ function updateLivesUI(color, missed_turns, rank) {
     });
 }
 
+function setDiceComment(title, message) {
+    const titleEl = document.getElementById("dice-comment-title");
+    const textEl = document.getElementById("dice-comment-text");
+    if (titleEl) titleEl.textContent = title || "";
+    if (textEl) textEl.textContent = message || "";
+}
+
+function characterImageFor(player) {
+    const id = player && player.skin;
+    const safe = LUDO_CHARACTERS.some(([key]) => key === id) ? id : "optimist";
+    return `url("/static/img/characters/${safe}.webp")`;
+}
+
 function updateTurnUI(active_color, active_user_id, players) {
     const board = document.getElementById("ludo-board");
     if(board) {
@@ -1251,11 +1275,28 @@ function updateTurnUI(active_color, active_user_id, players) {
                 if(nameEl) nameEl.innerText = formatName(p.name);
                 const avatar = card.querySelector('.avatar');
                 if (avatar) {
+                    avatar.style.backgroundImage = characterImageFor(p);
+                    avatar.textContent = "";
                     if (!isTeamMode && [1, 2, 3].includes(p.rank)) avatar.dataset.rank = p.rank;
                     else delete avatar.dataset.rank;
                 }
+                const note = card.querySelector('.player-comment');
+                if (note) {
+                    note.textContent = p.finished ? "ФИНИШ" :
+                        (p.is_bot ? (p.color === active_color ? "БОТ · ХОДИТ" : "БОТ-СОПЕРНИК") :
+                        (p.color === active_color ? (String(p.user_id) === String(userId) ? "ТВОЙ ХОД" : "ХОДИТ") : "В ИГРЕ"));
+                }
+                card.classList.toggle("is-bot", !!p.is_bot);
             }
         });
+    }
+
+    const activePlayer = (players || []).find(p => p.color === active_color);
+    if (activePlayer) {
+        const myTurn = String(active_user_id) === String(userId);
+        if (activePlayer.is_bot) setDiceComment(`ХОД БОТА · ${activePlayer.name}`, "Соперник думает над ходом.");
+        else if (myTurn) setDiceComment("ТВОЙ ХОД", "Кубик автоматически бросается до первой шестёрки, затем выбери фишку.");
+        else setDiceComment(`ХОД · ${activePlayer.name}`, "Дожидаемся броска соперника.");
     }
 
     const mainDice = document.getElementById("main-dice");

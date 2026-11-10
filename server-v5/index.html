@@ -7,10 +7,16 @@
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
     <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;display=swap">
-    <link rel="stylesheet" href="/static/css/style.css?v=49">
+    <link rel="stylesheet" href="/static/css/style.css?v=50">
     <link rel="stylesheet" href="/static/css/skins.css?v=1">
     <script>
-        const ROOM_CODE = "KOL541";
+        const ROOM_CODE = (() => {
+            const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param ||
+                new URLSearchParams(window.location.search).get("tgWebAppStartParam") || "";
+            const fromStart = String(startParam).startsWith("join_") ? String(startParam).slice(5).toUpperCase() : "";
+            const fromPath = window.location.pathname.match(/^\\/room\\/([A-Z0-9_]+)/i)?.[1] || "";
+            return fromStart || fromPath.toUpperCase() || "";
+        })();
         const LANG = (() => {
             const code = (window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code || navigator.language || "ru").toLowerCase().split("-")[0];
             return ["ru", "en", "kaa", "kk", "uz"].includes(code) ? code : "ru";
@@ -52,6 +58,7 @@
                     <span class="avatar">G</span>
                     <div class="player-meta">
                         <div class="player-name" data-i18n="color_green">Green</div>
+                        <div class="player-comment">Ожидает хода</div>
                         <div class="lives-container">
                             <div class="life-dot"><div class="life-loader"></div></div>
                             <div class="life-dot"><div class="life-loader"></div></div>
@@ -66,6 +73,7 @@
                     <span class="avatar">Y</span>
                     <div class="player-meta">
                         <div class="player-name" data-i18n="color_yellow">Yellow</div>
+                        <div class="player-comment">Ожидает хода</div>
                         <div class="lives-container">
                             <div class="life-dot"><div class="life-loader"></div></div>
                             <div class="life-dot"><div class="life-loader"></div></div>
@@ -86,6 +94,7 @@
                     <span class="avatar">R</span>
                     <div class="player-meta">
                         <div class="player-name" data-i18n="color_red">Red</div>
+                        <div class="player-comment">Ожидает хода</div>
                         <div class="lives-container">
                             <div class="life-dot"><div class="life-loader"></div></div>
                             <div class="life-dot"><div class="life-loader"></div></div>
@@ -100,6 +109,7 @@
                     <span class="avatar">B</span>
                     <div class="player-meta">
                         <div class="player-name" data-i18n="color_blue">Blue</div>
+                        <div class="player-comment">Ожидает хода</div>
                         <div class="lives-container">
                             <div class="life-dot"><div class="life-loader"></div></div>
                             <div class="life-dot"><div class="life-loader"></div></div>
@@ -121,6 +131,10 @@
                     <li class="die-item" data-side="5"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></li>
                     <li class="die-item" data-side="6"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></li>
                 </ol>
+            </div>
+            <div class="dice-comment" aria-live="polite">
+                <span class="dice-comment-title" id="dice-comment-title">ОЖИДАНИЕ</span>
+                <span class="dice-comment-text" id="dice-comment-text">Собираем игроков за столом.</span>
             </div>
         </div>
 
@@ -400,7 +414,7 @@
     <script src="/static/js/sticker_sfx.js?v=1"></script>
     <script src="/static/js/themes.js?v=1"></script>
     <script src="/static/js/voice.js?v=5"></script>
-    <script src="/static/js/main.js?v=7524"></script>
+    <script src="/static/js/main.js?v=7525"></script>
 
 
 </body></html>

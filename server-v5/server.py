@@ -579,6 +579,11 @@ async def schedule_autostart(room):
             room["start_task"] = None
 
 async def next_turn(room):
+    old_timer = room.get("turn_task")
+    if old_timer and old_timer is not asyncio.current_task() and not old_timer.done():
+        old_timer.cancel()
+    room["turn_task"] = None
+    room["turn_gen"] = room.get("turn_gen", 0) + 1
     room["dice"] = None
     room["consecutive_sixes"] = 0
     active_colors = [p["color"] for p in room["players"] if not p.get("finished") and not p.get("left")]
