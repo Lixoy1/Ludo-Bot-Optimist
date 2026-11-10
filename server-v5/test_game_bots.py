@@ -253,5 +253,90 @@ class BotRoomTests(unittest.TestCase):
 
         asyncio.run(run())
 
+    def test_standard_match_waits_for_all_four_places(self):
+        room = self.make_room()
+        room["players"] = [
+            {"user_id": "p1", "color": "green", "finished": True, "rank": 1},
+            {"user_id": "p2", "color": "yellow", "finished": True, "rank": 2},
+            {"user_id": "p3", "color": "blue", "finished": True, "rank": 3},
+            {"user_id": "p4", "color": "red", "finished": False, "rank": None},
+        ]
+        self.assertFalse(server.standard_match_complete(room))
+        room["players"][3]["finished"] = True
+        room["players"][3]["rank"] = 4
+        self.assertTrue(server.standard_match_complete(room))
+
+    def test_finish_rank_is_assigned_in_order_one_to_four(self):
+        room = self.make_room([
+            {"user_id": f"p{i}", "color": color, "finished": False, "rank": None}
+            for i, color in enumerate(server.COLORS, 1)
+        ])
+        ranks = []
+        for player in room["players"]:
+            ranks.append(server.assign_finish_rank(room, player))
+        self.assertEqual(ranks, [1, 2, 3, 4])
+        self.assertTrue(all(player["finished"] for player in room["players"]))
+
+    def test_next_turn_skips_finished_players_and_keeps_last_player_active(self):
+        async def run():
+            room = self.make_room([
+                {"user_id": "p1", "color": "green", "finished": True, "rank": 1},
+                {"user_id": "p2", "color": "yellow", "finished": False, "rank": None},
+                {"user_id": "p3", "color": "blue", "finished": True, "rank": 2},
+                {"user_id": "p4", "color": "red", "finished": True, "rank": 3},
+            ])
+            room["status"] = "PLAYING"
+            room["turn"] = "green"
+            server.ROOM_LOCKS[room["code"]] = asyncio.Lock()
+            with (
+                patch.object(server, "save_room_db", new=unittest.mock.AsyncMock()),
+                patch.object(server, "broadcast", new=unittest.mock.AsyncMock()),
+                patch.object(server, "sync_tg_message", new=unittest.mock.AsyncMock()),
+                patch.object(server, "schedule_turn_actor", new=unittest.mock.AsyncMock()),
+            ):
+                await server.next_turn(room)
+            self.assertEqual(room["turn"], "yellow")
+            self.assertEqual(room["dice"], None)
+
+        asyncio.run(run())
+
+    def test_room_spectator_can_chat_and_voice_but_cannot_control_game(self):
+        socket = object()
+        room = self.make_room([{
+            "user_id": "player-1", "name": "Player", "color": "green",
+            "finished": False, "left": False, "is_bot": False,
+        }])
+        room["sockets"] = {"player-1": socket, "guest-1": object()}
+        room["spectators"] = {
+            "guest-1": {"user_id": "guest-1", "name": "Guest", "is_spectator": True}
+        }
+        self.assertEqual(server.get_room_member(room, "guest-1")["name"], "Guest")
+        self.assertIsNone(server.can_control_game(room, "guest-1", room["sockets"]["guest-1"]))
+        self.assertEqual(server.can_control_game(room, "player-1", socket)["color"], "green")
+        self.assertIsNone(server.can_control_game(room, "player-1", object()))
+
+    def test_finished_team_member_can_control_only_while_teammate_is_active(self):
+        socket = object()
+        room = self.make_room([
+            {"user_id": "p1", "color": "red", "team": "A", "finished": True, "left": False},
+            {"user_id": "p2", "color": "yellow", "team": "A", "finished": False, "left": False},
+            {"user_id": "p3", "color": "green", "team": "B", "finished": False, "left": False},
+        ])
+        room["game_mode"] = "TEAM"
+        room["sockets"] = {"p1": socket}
+        self.assertEqual(server.can_control_game(room, "p1", socket)["color"], "red")
+        room["players"][1]["finished"] = True
+        self.assertIsNone(server.can_control_game(room, "p1", socket))
+
+    def test_group_commands_only_trigger_when_addressed_to_this_bot(self):
+        def message(text, chat_type="group"):
+            return SimpleNamespace(text=text, chat=SimpleNamespace(type=chat_type))
+
+        self.assertTrue(server.command_targets_this_bot(message("/game@Ludo_optimist_bot")))
+        self.assertTrue(server.command_targets_this_bot(message("/help@Ludo_optimist_bot")))
+        self.assertFalse(server.command_targets_this_bot(message("/game@AnotherBot")))
+        self.assertFalse(server.command_targets_this_bot(message("/game")))
+        self.assertTrue(server.command_targets_this_bot(message("/game", "private")))
+
 if __name__ == "__main__":
     unittest.main()
