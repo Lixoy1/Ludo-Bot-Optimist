@@ -1840,3 +1840,22 @@ svg { display: block; flex-shrink: 0; }
     from { transform: translate(-50%, -50%) scale(.94); opacity: .88; }
     to   { transform: translate(-50%, -50%) scale(1.09); opacity: 1; }
 }
+
+
+/* Pre-game board appearance selector and calm classic board palette. */
+.board-style-picker { padding:2px 16px 12px; }
+.board-style-picker strong { display:block; margin:0 0 8px; font-size:12px; letter-spacing:.5px; color:var(--text-2); }
+.board-style-options { display:grid; grid-template-columns:1fr 1fr; gap:9px; }
+.board-style-option { min-height:62px; border:1px solid var(--line-strong); border-radius:14px; background:rgba(255,255,255,.045); color:var(--text); font:inherit; font-weight:800; cursor:pointer; display:flex; align-items:center; justify-content:center; gap:9px; }
+.board-style-option::before { content:""; width:24px; height:24px; border-radius:7px; border:1px solid rgba(255,255,255,.28); background:linear-gradient(135deg,#DCEBDD 0 25%,#F1E8C9 25% 50%,#DCE7F1 50% 75%,#F0DEDC 75%); }
+.board-style-option[data-board-style="neon"]::before { background:linear-gradient(135deg,#19E7A0,#EBC34E,#FF456E,#27A8F5); box-shadow:0 0 12px rgba(0,220,255,.3); }
+.board-style-option.selected { border:2px solid #f5c542; background:rgba(245,197,66,.12); }
+#ludo-board[data-theme="classic"] { background:#F2EFE7; box-shadow:0 8px 22px rgba(0,0,0,.18); }
+#ludo-board[data-theme="classic"] .board-art { filter:none; }
+#ludo-board[data-theme="classic"] .cell.track-cell:not(.home-cell) { background:#FCFBF7; box-shadow:inset 0 0 0 1px #C9C6BD; border-radius:1px; }
+#ludo-board[data-theme="classic"] .cell.home-green { background:#BFD9C3; box-shadow:inset 0 0 0 1px #8FB598; }
+#ludo-board[data-theme="classic"] .cell.home-yellow { background:#E9DCA9; box-shadow:inset 0 0 0 1px #CDBB78; }
+#ludo-board[data-theme="classic"] .cell.home-blue { background:#BED0E2; box-shadow:inset 0 0 0 1px #8FAAC7; }
+#ludo-board[data-theme="classic"] .cell.home-red { background:#E5C3BF; box-shadow:inset 0 0 0 1px #C99A94; }
+#ludo-board[data-theme="classic"] .cell.track-cell.safe-cell::after { color:#9B8754; text-shadow:none; }
+#ludo-board[data-theme="classic"]::before { animation:none; opacity:.55; }
