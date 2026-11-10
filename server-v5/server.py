@@ -165,22 +165,36 @@ async def save_room_db(room: dict):
     except Exception:
         pass
 
+def restore_room_from_db(code: str):
+    """Restore one room from PostgreSQL/SQLite when it is absent from memory."""
+    try:
+        row = db.execute("SELECT state_json FROM rooms WHERE code=?", (code,)).fetchone()
+        if not row:
+            return None
+        data = json.loads(row[0])
+        if data.get("status") == "FINISHED":
+            return None
+        data["sockets"] = {}
+        data["start_task"] = None
+        data["turn_task"] = None
+        data["turn_gen"] = int(data.get("turn_gen", 0))
+        data.setdefault("lobby_deadline", None)
+        data["actor_task"] = None
+        data.setdefault("creator_user_id", None)
+        ROOMS[code] = data
+        ROOM_LOCKS.setdefault(code, asyncio.Lock())
+        return data
+    except Exception as exc:
+        print(f"[ROOM_RESTORE_ERROR] room={code} error={type(exc).__name__}: {exc}")
+        return None
+
 def load_rooms_from_db():
     try:
-        for code, state_json in db.execute("SELECT code, state_json FROM rooms").fetchall():
-            data = json.loads(state_json)
-            if data.get("status") != "FINISHED":
-                data["sockets"] = {}
-                data["start_task"] = None
-                data["turn_task"] = None
-                data["turn_gen"] = 0
-                data.setdefault("lobby_deadline", None)
-                data["actor_task"] = None
-                data.setdefault("creator_user_id", None)
-                ROOMS[code] = data
-                ROOM_LOCKS[code] = asyncio.Lock()
-    except Exception:
-        pass
+        rows = db.execute("SELECT code FROM rooms").fetchall()
+        for (code,) in rows:
+            restore_room_from_db(code)
+    except Exception as exc:
+        print(f"[ROOMS_LOAD_ERROR] error={type(exc).__name__}: {exc}")
 
 load_rooms_from_db()
 
@@ -609,7 +623,8 @@ async def begin_match(room):
     await broadcast(room, {
         "event": "GAME_STARTED", "status": "PLAYING", "game_mode": room["game_mode"],
         "board_state": room["board_state"], "players": room["players"],
-        "turn": room["turn"], "active_user_id": active_p["user_id"], "timer": t_sec
+        "turn": room["turn"], "active_user_id": active_p["user_id"],
+        "dice": room.get("dice"), "timer": t_sec
     })
     # Board and bot/player turn logic are live before the Telegram group edit.
     await schedule_turn_actor(room)
@@ -723,7 +738,7 @@ async def send_start_menu(message: types.Message):
     if payload.startswith("join_"):
         room_path = payload[5:].upper()
         code = room_path.split("_", 1)[0]
-        room = ROOMS.get(code)
+        room = ROOMS.get(code) or restore_room_from_db(code)
         if not room or room.get("status") not in ("WAITING", "PLAYING"):
             await message.answer("Эта игровая комната уже недоступна. Попросите друга создать новую.")
             return
@@ -862,23 +877,9 @@ async def cb_start_game(call: types.CallbackQuery):
     if not ok:
         await call.message.answer(f"⚠️ {message}")
         return
-    enter_kb = InlineKeyboardMarkup(inline_keyboard=[[
-        InlineKeyboardButton(
-            text="🎮 Войти в игру",
-            url=room_webapp_url(code)
-        )
-    ]])
-    try:
-        await call.message.answer(
-            f"🎮 Игра началась! ({MODE_NAMES.get(room['game_mode'], 'Optimist Ludo')})\\n"
-            + "\\n".join(
-                f"{COLOR_EMOJI[p['color']]} {p['name']}{' (БОТ)' if p.get('is_bot') else ''}"
-                for p in room["players"]
-            ),
-            reply_markup=enter_kb
-        )
-    except Exception as exc:
-        print(f"[GAME_START_ANNOUNCEMENT_ERROR] room={code} error={type(exc).__name__}: {exc}")
+    # begin_match -> sync_tg_message already edits the original lobby message
+    # and replaces its buttons with a single "Войти в игру" link.
+
 
 @dp.my_chat_member()
 async def on_bot_membership_changed(event: types.ChatMemberUpdated):
@@ -1210,6 +1211,7 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                             "players": room["players"],
                             "turn": room["turn"],
                             "active_user_id": active_p["user_id"],
+                            "dice": room.get("dice"),
                             "timer": 15 if room["game_mode"] == "BLITZ" else 30
                         })
 
@@ -1285,8 +1287,15 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
 
             elif act == "ROLL_DICE":
                 async with ROOM_LOCKS[room["code"]]:
-                    me = next((p for p in room["players"] if p["user_id"] == uid), None)
-                    if not me or me["color"] != room["turn"] or room["dice"] is not None:
+                    me = next((p for p in room["players"] if str(p["user_id"]) == str(uid)), None)
+                    if not me:
+                        await websocket.send_json({"event": "DICE_REJECTED", "message": "Вы не участвуете в этой партии."})
+                        continue
+                    if me["color"] != room["turn"]:
+                        await websocket.send_json({"event": "DICE_REJECTED", "message": "Сейчас ход другого игрока."})
+                        continue
+                    if room["dice"] is not None:
+                        await websocket.send_json({"event": "DICE_REJECTED", "message": "Кубик уже брошен. Выберите фишку."})
                         continue
                     # A manual tap can take over from the opening auto-roll helper.
                     if not me.get("opening_roll_completed"):
