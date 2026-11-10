@@ -2440,8 +2440,19 @@ function createLudoVoicePlayer(message) {
     const button = document.createElement("button");
     button.type = "button";
     button.className = "voice-play";
-    button.textContent = "▶";
+    button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true" focusable="false"><path d="M8 5.5v13l10-6.5z" fill="currentColor"/></svg>';
     button.setAttribute("aria-label", "Прослушать голосовое сообщение");
+    button.setAttribute("title", "Воспроизвести");
+    // Inline fallback ensures the control stays visible inside Telegram WebView
+    // even if a broad button reset or cached stylesheet overrides its class.
+    Object.assign(button.style, {
+        display: "grid", placeItems: "center", visibility: "visible", opacity: "1",
+        width: "38px", height: "38px", minWidth: "38px", flex: "0 0 38px",
+        border: "1px solid rgba(255,255,255,.28)", borderRadius: "50%",
+        color: "inherit", background: "rgba(255,255,255,.12)",
+        padding: "0", margin: "0", lineHeight: "1"
+    });
+    button.querySelector("svg").style.cssText = "display:block;width:18px;height:18px;";
 
     const track = document.createElement("div");
     track.className = "voice-track";
@@ -2472,10 +2483,10 @@ function createLudoVoicePlayer(message) {
         progress.style.width = (Math.max(0, Math.min(1, ratio)) * 100) + "%";
         duration.textContent = formatLudoVoiceTime(audio.currentTime) + " / " + formatLudoVoiceTime(message.durationSeconds);
     });
-    audio.addEventListener("play", () => { button.textContent = "Ⅱ"; });
-    audio.addEventListener("pause", () => { button.textContent = "▶"; });
+    audio.addEventListener("play", () => { button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M7 5h4v14H7zM15 5h4v14h-4z" fill="currentColor"/></svg>'; });
+    audio.addEventListener("pause", () => { button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5z" fill="currentColor"/></svg>'; });
     audio.addEventListener("ended", () => {
-        button.textContent = "▶";
+        button.innerHTML = '<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M8 5.5v13l10-6.5z" fill="currentColor"/></svg>';
         progress.style.width = "0%";
         duration.textContent = formatLudoVoiceTime(message.durationSeconds);
         if (objectUrl) releaseAudio();
