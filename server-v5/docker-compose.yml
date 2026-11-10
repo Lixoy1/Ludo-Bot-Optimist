@@ -1,0 +1,21 @@
+services:
+  optimist-ludo:
+    build: .
+    restart: unless-stopped
+    env_file: .env
+    environment:
+      DATABASE_PATH: /data/ludo.db
+      APP_ENV: production
+      ALLOW_DEV_AUTH: "false"
+    ports:
+      - "8000:8000"
+    volumes:
+      - ludo-data:/data
+    healthcheck:
+      test: ["CMD", "python", "-c", "import urllib.request; urllib.request.urlopen('http://127.0.0.1:8000/healthz',timeout=5)"]
+      interval: 30s
+      timeout: 7s
+      retries: 3
+      start_period: 40s
+volumes:
+  ludo-data:

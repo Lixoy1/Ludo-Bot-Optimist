@@ -1,0 +1,383 @@
+<html lang="en" style="--tg-color-scheme: dark; --tg-theme-bg-color: #212121; --tg-theme-button-color: #8774e1; --tg-theme-button-text-color: #ffffff; --tg-theme-hint-color: #aaaaaa; --tg-theme-link-color: #8774e1; --tg-theme-secondary-bg-color: #181818; --tg-theme-text-color: #ffffff; --tg-theme-header-bg-color: #212121; --tg-theme-accent-text-color: #8774e1; --tg-theme-section-bg-color: #212121; --tg-theme-section-header-text-color: #8774e1; --tg-theme-subtitle-text-color: #aaaaaa; --tg-theme-destructive-text-color: #ff595a; --tg-viewport-height: 100vh; --tg-viewport-stable-height: 100vh;"><head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <meta name="theme-color" content="#0B0F1A">
+    <title>Optimist Ludo</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin="">
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&amp;display=swap">
+    <link rel="stylesheet" href="/static/css/style.css?v=48">
+    <link rel="stylesheet" href="/static/css/skins.css?v=1">
+    <script>
+        const ROOM_CODE = "KOL541";
+        const LANG = "en";
+    </script>
+</head>
+
+
+
+
+
+
+
+
+<body>
+    
+    <main class="stage">
+    <div id="room-title" class="room-title" style="display: block;">Standard</div>
+
+    <section id="game-info" class="lobby-container" style="display: none;">
+        <div class="lobby-head">
+            <h1 class="lobby-title" data-i18n="waiting_players">Waiting for players</h1>
+            <span id="lobby-count" class="lobby-count">2/4</span>
+        </div>
+        <div id="lobby-slots" class="lobby-slots"><div class="slot active is-me"><span class="slot-avatar" style="--pc: var(--red);">O</span><span class="slot-text"><span class="slot-name">OПTИMИСT</span><span class="slot-you">You</span></span></div><div class="slot active"><span class="slot-avatar is-yellow" style="--pc: var(--yellow);">В</span><span class="slot-text"><span class="slot-name">Василий</span></span></div><div class="slot empty"><span class="slot-wait"><i></i><i></i><i></i></span></div><div class="slot empty"><span class="slot-wait"><i></i><i></i><i></i></span></div></div>
+    </section>
+
+    <div id="board-container" style="display: block;">
+                <!-- Верхние игроки: Зелёный (слева) и Жёлтый (справа) -->
+        <div id="top-players" class="players-row">
+            <div id="wrapper-green" class="player-wrap">
+                <div id="player-green" class="player-card" onclick="openPlayerPop('green')">
+                    <span class="voice-badge" onclick="event.stopPropagation(); Voice.toggleMute('green')">🎤</span>
+                    <span class="avatar">G</span>
+                    <div class="player-meta">
+                        <div class="player-name" data-i18n="color_green">Green</div>
+                        <div class="lives-container">
+                            <div class="life-dot"><div class="life-loader"></div></div>
+                            <div class="life-dot"><div class="life-loader"></div></div>
+                            <div class="life-dot"><div class="life-loader"></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="wrapper-yellow" class="player-wrap">
+                <div id="player-yellow" class="player-card" onclick="openPlayerPop('yellow')">
+                    <span class="voice-badge" onclick="event.stopPropagation(); Voice.toggleMute('yellow')">🎤</span>
+                    <span class="avatar">Y</span>
+                    <div class="player-meta">
+                        <div class="player-name" data-i18n="color_yellow">Yellow</div>
+                        <div class="lives-container">
+                            <div class="life-dot"><div class="life-loader"></div></div>
+                            <div class="life-dot"><div class="life-loader"></div></div>
+                            <div class="life-dot"><div class="life-loader"></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div id="ludo-board" class="ludo-board" data-theme="neon"></div>
+
+        <!-- Нижние игроки: Красный (слева) и Синий (справа) -->
+        <div id="bottom-players" class="players-row">
+            <div id="wrapper-red" class="player-wrap">
+                <div id="player-red" class="player-card" onclick="openPlayerPop('red')">
+                    <span class="voice-badge" onclick="event.stopPropagation(); Voice.toggleMute('red')">🎤</span>
+                    <span class="avatar">R</span>
+                    <div class="player-meta">
+                        <div class="player-name" data-i18n="color_red">Red</div>
+                        <div class="lives-container">
+                            <div class="life-dot"><div class="life-loader"></div></div>
+                            <div class="life-dot"><div class="life-loader"></div></div>
+                            <div class="life-dot"><div class="life-loader"></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+            <div id="wrapper-blue" class="player-wrap">
+                <div id="player-blue" class="player-card" onclick="openPlayerPop('blue')">
+                    <span class="voice-badge" onclick="event.stopPropagation(); Voice.toggleMute('blue')">🎤</span>
+                    <span class="avatar">B</span>
+                    <div class="player-meta">
+                        <div class="player-name" data-i18n="color_blue">Blue</div>
+                        <div class="lives-container">
+                            <div class="life-dot"><div class="life-loader"></div></div>
+                            <div class="life-dot"><div class="life-loader"></div></div>
+                            <div class="life-dot"><div class="life-loader"></div></div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Единый центральный кубик внизу экрана -->
+        <div class="center-dice-dock">
+            <div class="dice-container" id="main-dice" onclick="rollDice()">
+                <ol class="die-list even-roll" data-roll="1" id="main-die">
+                    <li class="die-item" data-side="1"><span class="dot"></span></li>
+                    <li class="die-item" data-side="2"><span class="dot"></span><span class="dot"></span></li>
+                    <li class="die-item" data-side="3"><span class="dot"></span><span class="dot"></span><span class="dot"></span></li>
+                    <li class="die-item" data-side="4"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></li>
+                    <li class="die-item" data-side="5"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></li>
+                    <li class="die-item" data-side="6"><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span><span class="dot"></span></li>
+                </ol>
+            </div>
+        </div>
+
+        <div id="controls" class="controls"></div>
+    </div>
+    </main>
+
+    <button id="menu-toggle-btn" onclick="toggleMenu()" class="fab menu-toggle-btn" data-i18n-aria="menu" aria-label="Menu"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 6h16"></path><path d="M4 12h16"></path><path d="M4 18h16"></path></svg></button>
+    <button id="chat-toggle-btn" onclick="toggleChat()" class="fab chat-toggle-btn" data-i18n-aria="chat" aria-label="Chat"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 20l1.3 -3.9c-2.324 -3.437 -1.426 -7.872 2.1 -10.374c3.526 -2.501 8.59 -2.296 11.845 .48c3.255 2.777 3.695 7.266 1.029 10.501c-2.666 3.235 -7.615 4.215 -11.574 2.293l-4.7 1"></path></svg></button>
+    <button id="voice-btn" onclick="Voice.toggleMic()" class="fab voice-btn" data-i18n-aria="voice_aria" aria-label="Microphone"><span class="mic-off"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 3l18 18"></path><path d="M9 5a3 3 0 0 1 6 0v5a3 3 0 0 1 -.13 .874m-2 2a3 3 0 0 1 -3.87 -2.872v-1"></path><path d="M5 10a7 7 0 0 0 10.846 5.85m2 -2a6.967 6.967 0 0 0 1.152 -3.85"></path><path d="M8 21l8 0"></path><path d="M12 17l0 4"></path></svg></span><span class="mic-on" hidden=""><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 5a3 3 0 0 1 6 0v5a3 3 0 0 1 -6 0z"></path><path d="M5 10a7 7 0 0 0 14 0"></path><path d="M8 21l8 0"></path><path d="M12 17l0 4"></path></svg></span></button>
+    
+
+    <!-- Juwmaq oknası -->
+    <div id="game-over-overlay" class="game-over-overlay" style="display: none;">
+        <div class="game-over-content" role="dialog" aria-modal="true">
+            <div class="go-icon"><svg viewBox="0 0 24 24" width="28" height="28" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M8 21l8 0"></path><path d="M12 17l0 4"></path><path d="M7 4l10 0"></path><path d="M17 4v8a5 5 0 0 1 -10 0v-8"></path><path d="M5 9m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"></path><path d="M19 9m-2 0a2 2 0 1 0 4 0a2 2 0 1 0 -4 0"></path></svg></div>
+            <h2 data-i18n="game_over">Finished!</h2>
+            <div id="final-results" class="final-results">
+                <!-- Nátijeler JS arqalı qosıladı -->
+            </div>
+            <button class="btn btn-primary btn-block" onclick="closeGameOver()" data-i18n="close">Close</button>
+        </div>
+    </div>
+
+    <div id="chat-container" class="chat-container" style="display: none;">
+        <div class="chat-header">
+            <span data-i18n="chat">Chat</span>
+            <button class="icon-btn" onclick="toggleChat()" aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12"></path><path d="M6 6l12 12"></path></svg></button>
+        </div>
+        <div id="chat-messages" class="chat-messages">
+            <!-- Xabarlar usı jerge túsedi -->
+        </div>
+        <div class="chat-input-area">
+            <input type="text" id="chat-input" placeholder="Type a message..." data-i18n-ph="chat_ph" onkeypress="handleChatKey(event)" maxlength="200" autocomplete="off">
+            <button class="send-btn" onclick="sendMessage()" aria-label="Send"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M12 5l0 14"></path><path d="M18 11l-6 -6"></path><path d="M6 11l6 -6"></path></svg></button>
+        </div>
+    </div>
+
+    <!-- Menyu paneli (shep tómen) — ikonkalar; halat reń menen belgilenedi -->
+    <div id="menu-container" class="menu-container" style="display: none;">
+        <button id="menu-sound-btn" class="menu-icon-btn on" onclick="toggleSoundSetting()" title="Sound: On">
+            <span id="menu-sound-icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 8a5 5 0 0 1 0 8"></path><path d="M17.7 5a9 9 0 0 1 0 14"></path><path d="M6 15h-2a1 1 0 0 1 -1 -1v-4a1 1 0 0 1 1 -1h2l3.5 -4.5a.8 .8 0 0 1 1.5 .5v14a.8 .8 0 0 1 -1.5 .5l-3.5 -4.5"></path></svg></span>
+        </button>
+        <button id="menu-vibration-btn" class="menu-icon-btn on" onclick="toggleVibrationSetting()" title="Vibration: On">
+            <span id="menu-vibration-icon"><svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M3 5a2 2 0 0 1 2 -2h8a2 2 0 0 1 2 2v14a2 2 0 0 1 -2 2h-8a2 2 0 0 1 -2 -2z"></path><path d="M8 4l2 0"></path><path d="M9 17l0 .01"></path><path d="M21 6l-2 3l2 3l-2 3l2 3"></path></svg></span>
+        </button>
+        <button id="menu-leave-btn" class="menu-icon-btn menu-icon-danger" onclick="leaveGame()" title="Leave game">
+            <svg viewBox="0 0 24 24" width="22" height="22" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 8v-2a2 2 0 0 0 -2 -2h-7a2 2 0 0 0 -2 2v12a2 2 0 0 0 2 2h7a2 2 0 0 0 2 -2v-2"></path><path d="M9 12h12l-3 -3"></path><path d="M18 15l3 -3"></path></svg>
+        </button>
+    </div>
+
+    <!-- Oyınshı profili: kartochka basılǵanda kishkene popup (main.js openPlayerPop) -->
+    <div id="player-pop-backdrop" class="pop-backdrop" hidden="" onclick="closePlayerPop()"></div>
+    <div id="player-pop" class="player-pop" role="dialog" aria-modal="true" hidden=""></div>
+
+    <div id="animation-modal" class="animation-modal" style="display: none;" onclick="if (event.target === this) closeAnimationModal()">
+        <div class="animation-modal-content">
+            <div class="animation-header">
+                <span data-i18n="send_sticker">Send a sticker</span>
+                <button class="icon-btn" onclick="closeAnimationModal()" aria-label="Close"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M18 6l-12 12"></path><path d="M6 6l12 12"></path></svg></button>
+            </div>
+            <!-- Toplamlar: ulıwma + hár skinniń óz stikerleri (main.js selectStickerTab) -->
+            <div class="sticker-tabs" id="sticker-tabs" role="tablist"></div>
+            <!-- Turaqlı biyiklik: bólim almasqanda panel (hám bólim túymeleri) orınnan qozǵalmaydı -->
+            <div class="sticker-body">
+            <div class="animation-grid" id="sticker-general">
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (23).json')">
+                    <lottie-player data-src="/static/animations/lottie (23).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (40).json')">
+                    <lottie-player data-src="/static/animations/lottie (40).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (34).json')">
+                    <lottie-player data-src="/static/animations/lottie (34).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (32).json')">
+                    <lottie-player data-src="/static/animations/lottie (32).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (68).json')">
+                    <lottie-player data-src="/static/animations/lottie (68).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('question.json')">
+                    <lottie-player data-src="/static/animations/question.json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (44).json')">
+                    <lottie-player data-src="/static/animations/lottie (44).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('pencil.json')">
+                    <lottie-player data-src="/static/animations/pencil.json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (63).json')">
+                    <lottie-player data-src="/static/animations/lottie (63).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (62).json')">
+                    <lottie-player data-src="/static/animations/lottie (62).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (5).json')">
+                    <lottie-player data-src="/static/animations/lottie (5).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (54).json')">
+                    <lottie-player data-src="/static/animations/lottie (54).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('die.json')">
+                    <lottie-player data-src="/static/animations/die.json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (56).json')">
+                    <lottie-player data-src="/static/animations/lottie (56).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (61).json')">
+                    <lottie-player data-src="/static/animations/lottie (61).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (72).json')">
+                    <lottie-player data-src="/static/animations/lottie (72).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (17).json')">
+                    <lottie-player data-src="/static/animations/lottie (17).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie.json')">
+                    <lottie-player data-src="/static/animations/lottie.json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (31).json')">
+                    <lottie-player data-src="/static/animations/lottie (31).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (41).json')">
+                    <lottie-player data-src="/static/animations/lottie (41).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (37).json')">
+                    <lottie-player data-src="/static/animations/lottie (37).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (59).json')">
+                    <lottie-player data-src="/static/animations/lottie (59).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (30).json')">
+                    <lottie-player data-src="/static/animations/lottie (30).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('dancer-woman.json')">
+                    <lottie-player data-src="/static/animations/dancer-woman.json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (49).json')">
+                    <lottie-player data-src="/static/animations/lottie (49).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (14).json')">
+                    <lottie-player data-src="/static/animations/lottie (14).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (7).json')">
+                    <lottie-player data-src="/static/animations/lottie (7).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (43).json')">
+                    <lottie-player data-src="/static/animations/lottie (43).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('bouquet.json')">
+                    <lottie-player data-src="/static/animations/bouquet.json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (64).json')">
+                    <lottie-player data-src="/static/animations/lottie (64).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (4).json')">
+                    <lottie-player data-src="/static/animations/lottie (4).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (38).json')">
+                    <lottie-player data-src="/static/animations/lottie (38).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (74).json')">
+                    <lottie-player data-src="/static/animations/lottie (74).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('snail.json')">
+                    <lottie-player data-src="/static/animations/snail.json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (28).json')">
+                    <lottie-player data-src="/static/animations/lottie (28).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (36).json')">
+                    <lottie-player data-src="/static/animations/lottie (36).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (71).json')">
+                    <lottie-player data-src="/static/animations/lottie (71).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (39).json')">
+                    <lottie-player data-src="/static/animations/lottie (39).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (60).json')">
+                    <lottie-player data-src="/static/animations/lottie (60).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (1).json')">
+                    <lottie-player data-src="/static/animations/lottie (1).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('monkey.json')">
+                    <lottie-player data-src="/static/animations/monkey.json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('white-flag.json')">
+                    <lottie-player data-src="/static/animations/white-flag.json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (22).json')">
+                    <lottie-player data-src="/static/animations/lottie (22).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('lottie (19).json')">
+                    <lottie-player data-src="/static/animations/lottie (19).json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('collision.json')">
+                    <lottie-player data-src="/static/animations/collision.json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+                <div class="animation-item" onclick="sendAnimation('wrapped-gift.json')">
+                    <lottie-player data-src="/static/animations/wrapped-gift.json" background="transparent" speed="1" loop="" autoplay="" style="width: 100%; height: 100%; pointer-events: none;"></lottie-player>
+                </div>
+                
+            </div>
+            <div class="animation-grid is-pack" id="sticker-pack" hidden=""></div>
+            <div class="sticker-lock" id="sticker-lock" hidden=""></div>
+            </div>
+        </div>
+    </div>
+
+    <script defer="" src="https://unpkg.com/@lottiefiles/lottie-player@1.7.1/dist/lottie-player.js"></script>
+    <script src="/static/js/skins.js?v=9"></script>
+    <script src="/static/js/stickers.js?v=2"></script>
+    <script src="/static/js/sticker_sfx.js?v=1"></script>
+    <script src="/static/js/themes.js?v=1"></script>
+    <script src="/static/js/voice.js?v=5"></script>
+    <script src="/static/js/main.js?v=7522"></script>
+
+
+</body></html>

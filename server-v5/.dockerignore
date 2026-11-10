@@ -1,0 +1,11 @@
+.git
+.github
+__pycache__/
+*.py[cod]
+*.db
+*.db-*
+.env
+.env.*
+!.env.example
+*.zip
+node_modules/

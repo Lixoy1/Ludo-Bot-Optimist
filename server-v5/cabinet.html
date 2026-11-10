@@ -1,0 +1,232 @@
+<!DOCTYPE html>
+<html lang="ru">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+    <title>Профиль — Optimist Ludo</title>
+    <script src="https://telegram.org/js/telegram-web-app.js"></script>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@500;600;700;800&display=swap">
+    <style>
+        :root {
+            --bg-0: #0B0F1A; --bg-1: #10162A;
+            --surface: rgba(255, 255, 255, 0.06); --surface-2: rgba(255, 255, 255, 0.12);
+            --line: rgba(255, 255, 255, 0.09); --text: #F3F5F9; --text-2: #AEB6C7; --text-3: #8790A6;
+            --r-md: 14px; --r-lg: 20px; --r-pill: 999px;
+            --font: 'Manrope', system-ui, sans-serif;
+            --tabbar-h: 64px;
+            --safe-b: env(safe-area-inset-bottom, 0px);
+        }
+        * { box-sizing: border-box; -webkit-tap-highlight-color: transparent; }
+        body {
+            margin: 0 auto; max-width: 480px; min-height: 100vh;
+            padding: 20px 16px calc(32px + var(--tabbar-h) + var(--safe-b));
+            font-family: var(--font); color: var(--text);
+            background: linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 60%);
+        }
+        .profile { display: flex; flex-direction: column; align-items: center; text-align: center; margin-bottom: 20px; }
+        .avatar {
+            width: 80px; height: 80px; margin-bottom: 10px; border-radius: 50%;
+            display: grid; place-items: center; font-size: 32px; font-weight: 800;
+            background: linear-gradient(145deg, #2A3550, #1A2236); background-size: cover;
+        }
+        .pname { font-size: 22px; font-weight: 800; }
+        .summary { margin-bottom: 24px; background: var(--surface); border: 1px solid var(--line); border-radius: var(--r-lg); overflow: hidden; }
+        .rating-card { padding: 18px; text-align: center; border-bottom: 1px solid var(--line); }
+        .rating-label { font-size: 13px; font-weight: 700; color: var(--text-3); }
+        .rating-value { font-size: 44px; font-weight: 800; line-height: 1.1; }
+        .stats { display: grid; grid-template-columns: 1fr 1fr; }
+        .stat { padding: 14px; text-align: center; }
+        .stat:nth-child(odd) { border-right: 1px solid var(--line); }
+        .stat:nth-child(-n+2) { border-bottom: 1px solid var(--line); }
+        .stat-num { font-size: 22px; font-weight: 800; }
+        .stat-label { font-size: 12px; color: var(--text-3); margin-top: 2px; }
+        .page-title { margin: 4px 4px 16px; font-size: 24px; font-weight: 800; }
+        .section-title { margin: 0 4px 10px; font-size: 16px; font-weight: 800; }
+        .skins { display: grid; grid-template-columns: repeat(3, 1fr); gap: 10px; margin-bottom: 24px; }
+        .skin-card {
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            padding: 10px 8px; background: var(--surface); border: 1px solid var(--line);
+            border-radius: var(--r-md); cursor: pointer; transition: 0.15s;
+        }
+        .skin-card.is-equipped { border-color: #F5C542; background: rgba(245, 197, 66, 0.1); }
+        .skin-card img { width: 56px; height: 78px; object-fit: contain; }
+        .skin-name { font-size: 12.5px; font-weight: 700; text-align: center; }
+        .skin-badge {
+            font-size: 11px; font-weight: 800; padding: 3px 10px; border-radius: var(--r-pill);
+            background: var(--surface-2); color: var(--text-2);
+        }
+        .skin-card.is-equipped .skin-badge { background: #F5C542; color: #1A1300; }
+        .box { margin-bottom: 22px; padding: 14px; border-radius: var(--r-lg); background: var(--surface); border: 1px solid var(--line); }
+        .fav-row { display: flex; gap: 14px; margin-bottom: 8px; }
+        .fav-dot { width: 42px; height: 42px; border-radius: 50%; border: 0; cursor: pointer; }
+        .fav-dot.on { box-shadow: 0 0 0 3px var(--bg-0), 0 0 0 5px #F5C542; }
+        .hint { font-size: 12px; color: var(--text-3); line-height: 1.4; }
+        .theme-grid { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; margin-bottom: 8px; }
+        .theme-tile {
+            display: flex; flex-direction: column; align-items: center; gap: 8px;
+            padding: 8px; border-radius: 14px; border: 1px solid var(--line);
+            background: var(--bg-0); color: var(--text); font: inherit; cursor: pointer;
+        }
+        .theme-tile.on { border-color: #F5C542; box-shadow: 0 0 0 1px #F5C542; }
+        .theme-tile img { width: 100%; aspect-ratio: 1; border-radius: 10px; object-fit: cover; }
+        .theme-name { font-size: 13px; font-weight: 800; }
+        .tabbar {
+            position: fixed; left: 0; right: 0; bottom: 0; z-index: 50;
+            padding-bottom: var(--safe-b); background: rgba(11, 15, 26, 0.96); border-top: 1px solid var(--line);
+        }
+        .tabbar-inner { display: grid; grid-template-columns: repeat(3, 1fr); max-width: 480px; height: var(--tabbar-h); margin: 0 auto; }
+        .tab {
+            display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 4px;
+            font: inherit; font-size: 12px; font-weight: 700; color: var(--text-3); background: none; border: 0; cursor: pointer;
+        }
+        .tab.active { color: var(--text); }
+    </style>
+</head>
+<body>
+    <section class="page" id="page-profile">
+        <div class="profile">
+            <div class="avatar" id="avatar">O</div>
+            <div class="pname" id="name">Игрок</div>
+        </div>
+        <div class="summary">
+            <div class="rating-card">
+                <div class="rating-label">Рейтинг</div>
+                <div class="rating-value" id="rating">1000</div>
+            </div>
+            <div class="stats">
+                <div class="stat"><div class="stat-num" id="games">0</div><div class="stat-label">Игры</div></div>
+                <div class="stat"><div class="stat-num" id="wins">0</div><div class="stat-label">Победы</div></div>
+                <div class="stat"><div class="stat-num" id="winrate">0%</div><div class="stat-label">% побед</div></div>
+                <div class="stat"><div class="stat-num" id="streak">0</div><div class="stat-label">Серия</div></div>
+            </div>
+        </div>
+    </section>
+
+    <section class="page" id="page-shop" hidden>
+        <h1 class="page-title">Персонажи</h1>
+        <div class="skins" id="skins"></div>
+    </section>
+
+    <section class="page" id="page-settings" hidden>
+        <h1 class="page-title">Настройки</h1>
+        <div class="section-title">Любимый цвет</div>
+        <div class="box">
+            <div class="fav-row" id="fav-row"></div>
+            <div class="hint">Этот цвет достаётся вам в начале игры (если его не занял игрок, вошедший раньше).</div>
+        </div>
+
+        <div class="section-title">Тема доски</div>
+        <div class="box">
+            <div class="theme-grid" id="theme-grid"></div>
+            <div class="hint">Выбранная доска отображается в ваших играх.</div>
+        </div>
+    </section>
+
+    <nav class="tabbar">
+        <div class="tabbar-inner">
+            <button class="tab active" data-tab="profile">👤<span>Профиль</span></button>
+            <button class="tab" data-tab="shop">🎭<span>Персонажи</span></button>
+            <button class="tab" data-tab="settings">⚙️<span>Настройки</span></button>
+        </div>
+    </nav>
+
+    <script>
+        const tg = window.Telegram.WebApp;
+        tg.ready(); tg.expand();
+        const u = (tg.initDataUnsafe && tg.initDataUnsafe.user) || {};
+        const userId = String(u.id || localStorage.getItem('ludo_user_id') || 'player1');
+        const userName = u.first_name || 'Optimist';
+
+        const CHARACTERS = [
+            { id: "optimist", name: "Optimist" },
+            { id: "elvina", name: "Elvina" },
+            { id: "nikita", name: "Nikita" },
+            { id: "lilya-detective", name: "Lilya" },
+            { id: "natalie", name: "Natalie" },
+            { id: "ksyusha", name: "Ksyusha" },
+            { id: "lena", name: "Lena" },
+            { id: "poison", name: "Poison" },
+            { id: "cat", name: "Cat" },
+            { id: "husky", name: "Husky" },
+            { id: "owl", name: "Owl" },
+            { id: "raccoon", name: "Raccoon" }
+        ];
+
+        const THEMES = [
+            { id: "neon", name: "Optimist Neon", img: "/static/img/board-neon.png" },
+            { id: "royal", name: "Optimist Royal", img: "/static/img/board-royal.png" }
+        ];
+
+        const COLORS = { green: "#22A45D", yellow: "#F5B521", blue: "#2D7FE0", red: "#E5463E" };
+
+        let prefs = { skin: "optimist", board_theme: "neon", fav_color: null };
+
+        async function loadAll() {
+            const r = await fetch(`/api/me?init_data=${encodeURIComponent(tg.initData || '')}&user_id=${encodeURIComponent(userId)}&name=${encodeURIComponent(userName)}`);
+            if (r.ok) {
+                const d = await r.json();
+                document.getElementById('name').textContent = d.name;
+                document.getElementById('rating').textContent = d.rating;
+                document.getElementById('games').textContent = d.games;
+                document.getElementById('wins').textContent = d.wins;
+                document.getElementById('winrate').textContent = d.win_rate + "%";
+                document.getElementById('streak').textContent = d.best_streak;
+                const av = document.getElementById('avatar');
+                if (u.photo_url) { av.style.backgroundImage = `url("${u.photo_url}")`; av.textContent = ""; }
+                else av.textContent = d.name.charAt(0).toUpperCase();
+                prefs = d.prefs || prefs;
+                renderAll();
+            }
+        }
+
+        async function savePrefs(patch) {
+            prefs = { ...prefs, ...patch };
+            renderAll();
+            await fetch('/api/prefs', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ init_data: tg.initData || '', user_id: userId, ...patch })
+            });
+            try { tg.HapticFeedback.selectionChanged(); } catch (e) {}
+        }
+
+        function renderAll() {
+            const skinsWrap = document.getElementById('skins');
+            skinsWrap.innerHTML = CHARACTERS.map(c => {
+                const on = prefs.skin === c.id;
+                return `<div class="skin-card ${on ? 'is-equipped' : ''}" onclick="savePrefs({skin:'${c.id}'})">
+                    <img src="/static/img/characters/${c.id}.webp" alt="${c.name}">
+                    <div class="skin-name">${c.name}</div>
+                    <div class="skin-badge">${on ? '✓ Выбран' : 'Выбрать'}</div>
+                </div>`;
+            }).join('');
+
+            const favRow = document.getElementById('fav-row');
+            favRow.innerHTML = Object.entries(COLORS).map(([col, hex]) => {
+                const on = prefs.fav_color === col;
+                return `<button class="fav-dot ${on ? 'on' : ''}" style="background:${hex}" onclick="savePrefs({fav_color:${on ? 'null' : `'${col}'`}})"></button>`;
+            }).join('');
+
+            const themeGrid = document.getElementById('theme-grid');
+            themeGrid.innerHTML = THEMES.map(t => {
+                const on = prefs.board_theme === t.id;
+                return `<button class="theme-tile ${on ? 'on' : ''}" onclick="savePrefs({board_theme:'${t.id}'})">
+                    <img src="${t.img}" alt="${t.name}">
+                    <span class="theme-name">${t.name}</span>
+                </button>`;
+            }).join('');
+        }
+
+        document.querySelectorAll('.tab').forEach(btn => {
+            btn.onclick = () => {
+                document.querySelectorAll('.tab').forEach(b => b.classList.remove('active'));
+                btn.classList.add('active');
+                const tab = btn.dataset.tab;
+                document.querySelectorAll('.page').forEach(p => p.hidden = (p.id !== 'page-' + tab));
+            };
+        });
+
+        loadAll();
+    </script>
+</body>
+</html>

@@ -1,0 +1,1521 @@
+/* ═══════════════════════════════════════════════════════════════════════
+   Ludo — Mini App dizayn sisteması
+   Qaǵıyda: UI «xromı» neytral (aq/qara-kók), reń tek oyınshılarǵa tiyisli.
+   Radius: betler/kartalar 14px, sheet/modal 20px, túymeler — pill/dóńgelek.
+   ═══════════════════════════════════════════════════════════════════════ */
+:root {
+    --bg-0: #0B0F1A;
+    --bg-1: #10162A;
+    --surface: rgba(255, 255, 255, 0.06);
+    --surface-2: rgba(255, 255, 255, 0.10);
+    --sheet: #161D2E;
+    --line: rgba(255, 255, 255, 0.08);
+    --line-strong: rgba(255, 255, 255, 0.14);
+    --text: #F3F5F9;
+    --text-2: #AEB6C7;
+    --text-3: #8790A6;
+    --ink: #0B0F1A;            /* aq túymelerdegi qara tekst */
+    --danger: #FF5A5F;
+    --success: #3DD68C;
+    --gold: #F5C451;
+    --silver: #C8D0DC;
+    --bronze: #DDA073;
+
+    /* Oyınshı reńleri — taxta, tas, avatar hám taymer usılardan alınadı */
+    /* Oyınshı reńleri — taxta, tas, avatar hám taymer usılardan alınadı (main.js BOARD_COLORS menen birdey) */
+    --red: #E5463E;
+    --green: #22A45D;
+    --yellow: #F5B521;
+    --blue: #2D7FE0;
+
+    --r-sm: 10px;
+    --r-md: 14px;
+    --r-lg: 20px;
+    --r-pill: 999px;
+    --shadow-lg: 0 24px 60px -16px rgba(0, 0, 0, 0.7);
+    --ease: cubic-bezier(0.16, 1, 0.3, 1);
+    --font: 'Manrope', system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
+    --safe-b: env(safe-area-inset-bottom, 0px);
+}
+
+* {
+    box-sizing: border-box;
+    -webkit-tap-highlight-color: transparent;
+}
+
+html { background: var(--bg-0); }
+
+body {
+    margin: 0;
+    min-height: 100vh;
+    min-height: var(--tg-viewport-stable-height, 100dvh);
+    padding-bottom: calc(84px + var(--safe-b));
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    font-family: var(--font);
+    color: var(--text);
+    background:
+        radial-gradient(ellipse 90% 50% at 50% 45%, rgba(58, 80, 140, 0.22), transparent 70%),
+        linear-gradient(180deg, var(--bg-1) 0%, var(--bg-0) 100%);
+    -webkit-font-smoothing: antialiased;
+    overflow-x: hidden;
+}
+
+h1, h2, h3, h4 { margin: 0; }
+
+button {
+    font: inherit;
+    color: inherit;
+    background: none;
+    border: 0;
+    padding: 0;
+    cursor: pointer;
+}
+
+svg { display: block; flex-shrink: 0; }
+
+/* ─────────────────────────────── Túymeler ─────────────────────────────── */
+.btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 8px;
+    height: 48px;
+    padding: 0 24px;
+    border-radius: var(--r-pill);
+    font-size: 15px;
+    font-weight: 700;
+    white-space: nowrap;
+    transition: transform 0.15s var(--ease), background-color 0.2s, opacity 0.2s;
+}
+.btn:active { transform: scale(0.97); }
+.btn-primary { background: var(--text); color: var(--ink); }
+.btn-block { width: 100%; }
+
+.icon-btn {
+    width: 36px;
+    height: 36px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: var(--text-2);
+    background: var(--surface);
+    transition: transform 0.15s var(--ease), background-color 0.2s;
+}
+.icon-btn:active { transform: scale(0.9); background: var(--surface-2); }
+
+:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+
+/* Ataması + lobbi/taxta bir topar bolıp ekrannıń joqarısınan baslanadı;
+   bos orın tómende (FAB zonası tárepinde) qaladı. */
+.stage {
+    width: 100%;
+    margin: 0 0 auto;
+    padding-top: 12px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+/* ───────────────────────── Bólme ataması (pill) ───────────────────────── */
+.room-title {
+    margin: 0 0 4px;
+    padding: 6px 14px;
+    font-size: 13px;
+    font-weight: 700;
+    letter-spacing: 0.2px;
+    color: var(--text-2);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-pill);
+    white-space: nowrap;
+}
+
+/* ───────────────────────── Bólmesiz (welcome) bet ─────────────────────── */
+.welcome {
+    margin: auto 0;
+    padding: 24px 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 20px;
+    text-align: center;
+}
+.welcome h1 { font-size: 24px; font-weight: 800; letter-spacing: -0.3px; }
+
+/* ─────────────────────────────── Lobbi ────────────────────────────────── */
+.lobby-container {
+    width: 100%;
+    max-width: 460px;
+    padding: 20px 16px;
+}
+
+.lobby-head {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 4px;
+    margin: 6px 0 20px;
+    text-align: center;
+}
+.lobby-title { font-size: 22px; font-weight: 800; letter-spacing: -0.3px; }
+.lobby-count {
+    font-size: 15px;
+    font-weight: 700;
+    font-variant-numeric: tabular-nums;
+    color: var(--text-3);
+}
+
+.lobby-slots {
+    display: grid;
+    grid-template-columns: 1fr 1fr;
+    gap: 10px;
+}
+
+.slot {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+    min-width: 0;
+    min-height: 64px;
+    padding: 12px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+}
+.slot.empty {
+    justify-content: center;
+    background: transparent;
+    border: 1px dashed var(--line-strong);
+}
+.slot.is-me { border-color: rgba(255, 255, 255, 0.3); }
+
+.slot-avatar {
+    flex: 0 0 auto;
+    width: 38px;
+    height: 38px;
+    border-radius: 11px;
+    display: grid;
+    place-items: center;
+    font-size: 16px;
+    font-weight: 800;
+    color: #fff;
+    background: var(--pc, #3A4459);
+}
+.slot-text { display: flex; flex-direction: column; min-width: 0; }
+.slot-name {
+    font-size: 14px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.slot-you { font-size: 12px; font-weight: 600; color: var(--text-3); }
+
+/* Bos orın — «kútip atır» úsh noqatı */
+.slot-wait { display: flex; gap: 5px; }
+.slot-wait i {
+    width: 6px;
+    height: 6px;
+    border-radius: 50%;
+    background: var(--text-3);
+    animation: wait-dot 1.2s ease-in-out infinite;
+}
+.slot-wait i:nth-child(2) { animation-delay: 0.15s; }
+.slot-wait i:nth-child(3) { animation-delay: 0.3s; }
+@keyframes wait-dot {
+    0%, 80%, 100% { opacity: 0.25; transform: translateY(0); }
+    40% { opacity: 1; transform: translateY(-3px); }
+}
+
+/* Komanda rejimi — eki topar */
+.team-group {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    min-width: 0;
+}
+.team-name {
+    padding: 0 4px;
+    font-size: 13px;
+    font-weight: 700;
+    color: var(--text-2);
+}
+
+/* ─────────────────────────── Oyın maydanı ─────────────────────────────── */
+#board-container {
+    width: 100%;
+    max-width: 460px;
+    padding: 12px 12px 0;
+}
+
+.players-row {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 8px;
+    width: 100%;
+}
+#top-players { margin-bottom: 14px; }
+/* Tómengi qatar taxtanıń (z-index:10) kóleńkesinen joqarı turadı — atlar sayada qalmasın */
+#bottom-players { margin-top: 14px; position: relative; z-index: 20; }
+
+.player-wrap {
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    min-width: 0;
+    visibility: hidden;   /* JS oyındaǵı reńlerdi kórsetedi */
+}
+/* Oń táreptegi oyınshılar (kubik + karta) hámıyshe oń shetke tegis — iOS WebKit
+   blok keńligin uzın at boyınsha keńirek esaplasa da karta jılısıp ketpesin. */
+#wrapper-green,
+#wrapper-yellow { justify-content: flex-end; }
+
+#wrapper-red    { --pc: var(--red); }
+#wrapper-green  { --pc: var(--green); }
+#wrapper-yellow { --pc: var(--yellow); }
+#wrapper-blue   { --pc: var(--blue); }
+
+.player-card {
+    flex: 0 1 auto;
+    width: 132px;      /* anıq keńlik — intrinsic ólshem brauzerlerde birdey bolsın */
+    min-width: 0;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 6px 10px 6px 6px;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: var(--r-md);
+    opacity: 0.72;
+    cursor: pointer;
+    transition: opacity 0.3s, background-color 0.3s, border-color 0.3s, box-shadow 0.3s;
+}
+.player-card.is-active {
+    opacity: 1;
+    background: rgba(255, 255, 255, 0.1);
+    background: color-mix(in srgb, var(--pc) 12%, rgba(255, 255, 255, 0.04));
+    border-color: var(--pc);
+    box-shadow: 0 8px 20px -14px var(--pc);
+}
+
+.avatar {
+    position: relative;
+    flex: 0 0 auto;
+    width: 30px;
+    height: 30px;
+    border-radius: 9px;
+    display: grid;
+    place-items: center;
+    font-size: 14px;
+    font-weight: 800;
+    color: #fff;
+    background: var(--pc);
+}
+#wrapper-yellow .avatar,
+.slot-avatar.is-yellow { color: #2E2205; }
+
+/* Orın belgisi (1/2/3) — avatar múyeshinde */
+.avatar[data-rank]::after {
+    content: attr(data-rank);
+    position: absolute;
+    right: -6px;
+    bottom: -6px;
+    width: 17px;
+    height: 17px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 10px;
+    font-weight: 800;
+    color: #2A1D00;
+    background: var(--gold);
+    border: 2px solid var(--bg-0);
+}
+.avatar[data-rank="2"]::after { background: var(--silver); color: #1D232E; }
+.avatar[data-rank="3"]::after { background: var(--bronze); color: #2E1A0B; }
+
+.player-meta { flex: 1; min-width: 0; }
+
+.player-name {
+    font-size: 13px;
+    font-weight: 700;
+    line-height: 1.2;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+
+/* Taymer + jonlar: 3 bólek (⚜️ Blits'te 1), aqırǵı tirisi waqıt penen kemeyedi */
+.lives-container {
+    display: flex;
+    gap: 3px;
+    margin-top: 5px;
+}
+.life-dot {
+    flex: 1;
+    height: 4px;
+    border-radius: 2px;
+    background: rgba(255, 255, 255, 0.12);
+    overflow: hidden;
+}
+.life-loader {
+    width: 100%;
+    height: 100%;
+    border-radius: inherit;
+    background: var(--pc);
+    transition: width 1s linear, background-color 0.3s;
+}
+.life-loader.low { background: var(--danger); }
+.life-dot.missed { background: rgba(255, 90, 95, 0.4); }
+.life-dot.missed .life-loader { width: 0 !important; }
+.life-dot.off { display: none; }   /* ⚜️ Blits — 1 jon */
+
+/* ─────────────────────────────── Kubik ───────────────────────────────── */
+.dice-container {
+    position: relative;
+    z-index: 60;   /* taxtadan (10) hámıyshe joqarı — 3D kubik kesilmesin */
+    flex-shrink: 0;
+    width: 46px;
+    height: 46px;
+    display: grid;
+    place-items: center;
+    perspective: 600px;
+    background: var(--surface-2);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-md);
+    cursor: pointer;
+    visibility: hidden;
+}
+
+/* Sizdiń náwbetińiz — kubik óz reńińizdegi halqa menen «shaqıradı».
+   Halqa ::after'de tek transform/opacity menen jayıladı (GPU) — box-shadow
+   animaciyası hár kadrda qayta sızıw talap etetuǵın edi. */
+.dice-container.active { border-color: var(--pc); }
+.dice-container.active::after {
+    content: "";
+    position: absolute;
+    inset: -1px;
+    border-radius: inherit;
+    border: 2px solid var(--pc);
+    pointer-events: none;
+    animation: dice-call 1.4s var(--ease) infinite;
+}
+@keyframes dice-call {
+    from { transform: scale(1);    opacity: 0.9; }
+    to   { transform: scale(1.35); opacity: 0; }
+}
+
+/* Taslaǵanda kubik úlkeyip-domalap ornına túsedi */
+.dice-container.pop {
+    z-index: 1000;
+    animation: die-pop 0.55s ease-out;
+}
+@keyframes die-pop {
+    0%   { transform: scale(1); }
+    32%  { transform: scale(1.55); }
+    100% { transform: scale(1); }
+}
+
+.die-list {
+    position: relative;
+    width: 32px;
+    height: 32px;
+    margin: 0;
+    padding: 0;
+    list-style-type: none;
+    transform-style: preserve-3d;
+}
+
+.even-roll, .odd-roll { transition: transform 0.3s ease-out; }
+
+.die-item {
+    position: absolute;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    margin: 0;
+    padding: 0;
+    border-radius: 7px;
+    backface-visibility: hidden;   /* reńi — skins.css */
+}
+
+.dot {
+    position: absolute;
+    display: block;
+    width: 6px;
+    height: 6px;
+    margin-top: -3px;
+    margin-left: -3px;
+    border-radius: 50%;   /* reńi — skins.css */
+}
+
+.even-roll[data-roll="1"] { transform: rotateX(360deg) rotateY(360deg); }
+.even-roll[data-roll="2"] { transform: rotateX(450deg) rotateY(360deg); }
+.even-roll[data-roll="3"] { transform: rotateX(360deg) rotateY(270deg); }
+.even-roll[data-roll="4"] { transform: rotateX(360deg) rotateY(450deg); }
+.even-roll[data-roll="5"] { transform: rotateX(270deg) rotateY(360deg); }
+.even-roll[data-roll="6"] { transform: rotateX(360deg) rotateY(540deg); }
+
+.odd-roll[data-roll="1"] { transform: rotateX(-360deg) rotateY(-360deg); }
+.odd-roll[data-roll="2"] { transform: rotateX(-270deg) rotateY(-360deg); }
+.odd-roll[data-roll="3"] { transform: rotateX(-360deg) rotateY(-450deg); }
+.odd-roll[data-roll="4"] { transform: rotateX(-360deg) rotateY(-270deg); }
+.odd-roll[data-roll="5"] { transform: rotateX(-450deg) rotateY(-360deg); }
+.odd-roll[data-roll="6"] { transform: rotateX(-360deg) rotateY(-540deg); }
+
+[data-side="1"] { transform: rotate3d(0, 0, 0, 90deg) translateZ(16px); }
+[data-side="2"] { transform: rotate3d(-1, 0, 0, 90deg) translateZ(16px); }
+[data-side="3"] { transform: rotate3d(0, 1, 0, 90deg) translateZ(16px); }
+[data-side="4"] { transform: rotate3d(0, -1, 0, 90deg) translateZ(16px); }
+[data-side="5"] { transform: rotate3d(1, 0, 0, 90deg) translateZ(16px); }
+[data-side="6"] { transform: rotate3d(1, 0, 0, 180deg) translateZ(16px); }
+
+[data-side="1"] .dot:nth-of-type(1) { top: 50%; left: 50%; }
+
+[data-side="2"] .dot:nth-of-type(1) { top: 27%; left: 27%; }
+[data-side="2"] .dot:nth-of-type(2) { top: 73%; left: 73%; }
+
+[data-side="3"] .dot:nth-of-type(1) { top: 27%; left: 27%; }
+[data-side="3"] .dot:nth-of-type(2) { top: 50%; left: 50%; }
+[data-side="3"] .dot:nth-of-type(3) { top: 73%; left: 73%; }
+
+[data-side="4"] .dot:nth-of-type(1) { top: 27%; left: 27%; }
+[data-side="4"] .dot:nth-of-type(2) { top: 27%; left: 73%; }
+[data-side="4"] .dot:nth-of-type(3) { top: 73%; left: 27%; }
+[data-side="4"] .dot:nth-of-type(4) { top: 73%; left: 73%; }
+
+[data-side="5"] .dot:nth-of-type(1) { top: 27%; left: 27%; }
+[data-side="5"] .dot:nth-of-type(2) { top: 27%; left: 73%; }
+[data-side="5"] .dot:nth-of-type(3) { top: 50%; left: 50%; }
+[data-side="5"] .dot:nth-of-type(4) { top: 73%; left: 27%; }
+[data-side="5"] .dot:nth-of-type(5) { top: 73%; left: 73%; }
+
+[data-side="6"] .dot:nth-of-type(1) { top: 27%; left: 27%; }
+[data-side="6"] .dot:nth-of-type(2) { top: 27%; left: 73%; }
+[data-side="6"] .dot:nth-of-type(3) { top: 50%; left: 27%; }
+[data-side="6"] .dot:nth-of-type(4) { top: 50%; left: 73%; }
+[data-side="6"] .dot:nth-of-type(5) { top: 73%; left: 27%; }
+[data-side="6"] .dot:nth-of-type(6) { top: 73%; left: 73%; }
+
+/* ─────────────────────────────── Taxta ───────────────────────────────── */
+/* Barlıq vizual (bazalar, jol, juldızlar, oray) — JS sızatuǵın bir SVG
+   (.board-art). Kletkalar tek taslardıń «tayanısh» noqatı, ózleri mólder. */
+.ludo-board {
+    position: relative;
+    z-index: 10;
+    display: grid;
+    grid-template-columns: repeat(15, 1fr);
+    grid-template-rows: repeat(15, 1fr);
+    width: 100%;
+    max-width: 440px;
+    aspect-ratio: 1;
+    margin: 0 auto;
+    overflow: visible;
+    background: var(--board-bg, #F3F5F8);   /* ⚜️ tema — themes.js: BoardThemes.vars */
+    border-radius: 3%;
+    box-shadow: 0 0 0 1px rgba(255, 255, 255, 0.08), 0 16px 36px -18px rgba(0, 0, 0, 0.7);
+}
+
+.board-art {
+    position: absolute;
+    inset: 0;
+    z-index: 0;
+    width: 100%;
+    height: 100%;
+    pointer-events: none;
+}
+
+.cell {
+    position: relative;
+    z-index: 1;
+    width: 100%;
+    height: 100%;
+    overflow: visible !important;
+}
+
+.cell.base-spot { z-index: 30; }
+
+/* Náwbettegi oyınshınıń bazası — ramkası ásten qarańǵılanıp qayta janadı.
+   Bazanıń ústine qoyılǵan qarańǵılaw «ramka» qatlamı (ortası bos) tek OPACITY
+   menen animaciyalanadı — GPU'da isleydi. (Burın SVG fill animaciyası pútkil
+   taxtanı hár kadrda qayta sızatuǵın edi — hálsiz telefonlarda taslar keshigetuǵın.)
+   --dim ≈ reńniń 85% jaqtılıǵı; 1 kletka = baza keńliginiń 1/6 (16.667%). */
+.ludo-board::before {
+    content: "";
+    position: absolute;
+    z-index: 1;            /* SVG'den (0) joqarı, kletkalardan (1, keyinirek DOM) tómen */
+    display: none;
+    width: 40%;            /* 6/15 kletka */
+    height: 40%;
+    pointer-events: none;
+    background:
+        linear-gradient(var(--dim), var(--dim)) top    / 100% 16.667% no-repeat,
+        linear-gradient(var(--dim), var(--dim)) bottom / 100% 16.667% no-repeat,
+        linear-gradient(var(--dim), var(--dim)) left   / 16.667% 100% no-repeat,
+        linear-gradient(var(--dim), var(--dim)) right  / 16.667% 100% no-repeat;
+    opacity: 0;
+    will-change: opacity;
+    animation: base-pulse 0.9s ease-in-out infinite alternate;
+}
+.ludo-board.active-red::before    { display: block; --dim: var(--dim-red, #C33C35);    top: 0;   left: 0;   border-top-left-radius: 7.5%; }
+.ludo-board.active-green::before  { display: block; --dim: var(--dim-green, #1D8B4F);  top: 0;   left: 60%; border-top-right-radius: 7.5%; }
+.ludo-board.active-yellow::before { display: block; --dim: var(--dim-yellow, #D09A1C); top: 60%; left: 60%; border-bottom-right-radius: 7.5%; }
+.ludo-board.active-blue::before   { display: block; --dim: var(--dim-blue, #266CBE);   top: 60%; left: 0;   border-bottom-left-radius: 7.5%; }
+@keyframes base-pulse {
+    from { opacity: 0; }
+    to   { opacity: 1; }
+}
+
+/* Baza noqatların tray orayına jıljıtıw (SVG dóńgelekleri usı orınlarda) */
+#cell-1-1.base-spot, #cell-1-10.base-spot,
+#cell-10-10.base-spot, #cell-10-1.base-spot   { transform: translate(50%, 50%); }
+#cell-1-4.base-spot, #cell-1-13.base-spot,
+#cell-10-13.base-spot, #cell-10-4.base-spot   { transform: translate(-50%, 50%); }
+#cell-4-1.base-spot, #cell-4-10.base-spot,
+#cell-13-10.base-spot, #cell-13-1.base-spot   { transform: translate(50%, -50%); }
+#cell-4-4.base-spot, #cell-4-13.base-spot,
+#cell-13-13.base-spot, #cell-13-4.base-spot   { transform: translate(-50%, -50%); }
+
+/* Komanda rejimi — bazanıń ishki múyeshindegi A / B belgisi */
+.team-label {
+    position: absolute;
+    inset: 0;
+    z-index: 5;
+    display: grid;
+    place-items: center;
+    font-size: clamp(13px, 3.8vw, 17px);
+    font-weight: 800;
+    color: rgba(255, 255, 255, 0.95);
+    text-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+    pointer-events: none;
+    user-select: none;
+}
+
+/* ─────────────────────────────── Taslar ──────────────────────────────── */
+/* Tas qutısı tek poziciya ushın; pin suwreti ::after'de (sekire aladı),
+   pin astındaǵı halqa ::before'de (aktiv tasta punktir bolıp aylanadı). */
+.piece {
+    --ty: -85%;
+    position: absolute;
+    z-index: 100;
+    width: 90%;
+    height: auto;
+    aspect-ratio: 40 / 60;
+    transform: translate(-50%, var(--ty));
+    transition: top 0.2s, left 0.2s;
+    cursor: pointer;
+}
+.base-spot .piece { --ty: -80%; }
+
+.piece::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--pin) center bottom / 100% 100% no-repeat;
+    transform-origin: 50% 85%;   /* pinniń ushı — kletka orayında qaladı */
+}
+
+/* Pin suwretleri (--pin) — app/static/js/skins.js (klassik + satıp alınatuǵın skinler) */
+/* Hár tastıń astındaǵı kishi tutas halqa — pinniń ushı onıń ortasına túsedi.
+   Bazada uya dóńgelegi menen bir oraylı. */
+.piece::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 85%;
+    width: 60%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 2px solid var(--ring, rgba(27, 35, 51, 0.5));   /* qarańǵı temada — ashıq */
+    transform: translate(-50%, -50%);
+}
+.base-spot .piece::before { top: 80%; }
+
+/* Júriwge bolatuǵın tas — halqa sol ólshemde qalıp punktirge aylanadı hám aylanadı, pin azǵana sekiredi */
+.piece.highlight { z-index: 2000 !important; }
+.piece.highlight::before {
+    border: 2px dashed var(--ring-hi, rgba(27, 35, 51, 0.9));
+    box-shadow: inset 0 0 0 1.5px rgba(255, 255, 255, 0.85);
+    animation: ring-spin 3s linear infinite;
+}
+.piece.highlight::after { animation: pin-bob 0.8s ease-in-out infinite; }
+@keyframes ring-spin {
+    to { transform: translate(-50%, -50%) rotate(360deg); }
+}
+@keyframes pin-bob {
+    0%, 100% { transform: translateY(0); }
+    50%      { transform: translateY(-5%); }
+}
+
+/* Sırttan kirgen kóriwshi (VIP emes) — chat jabıq */
+#chat-input:disabled { opacity: 0.6; cursor: not-allowed; }
+.chat-input-area .send-btn:disabled { opacity: 0.4; cursor: not-allowed; }
+
+/* ⚜️ VIP — kartochka múyeshinde altın «VIP» belgisi hám altın reńli at (hámmege kórinedi) */
+.player-card { position: relative; }
+.vip-tag { display: none; }
+.player-card[data-vip="1"] .vip-tag {
+    display: block;
+    position: absolute;
+    top: -7px;
+    right: 8px;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 9px;
+    font-weight: 800;
+    letter-spacing: 0.06em;
+    line-height: 1.4;
+    color: #1A1300;
+    background: linear-gradient(90deg, #FFE9A0, #F5C542 55%, #E0A92A);
+    box-shadow: 0 2px 6px -2px rgba(245, 197, 66, 0.7);
+    pointer-events: none;
+}
+.player-card[data-vip="1"] .player-name {
+    background: linear-gradient(90deg, #FFE9A0, #F5C542 55%, #E0A92A);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
+}
+
+/* Taj skini iyesi — kartochkadaǵı avatar ústinde taj (barlıq oyınshılarǵa kórinedi) */
+.player-card[data-skin="crown"] .avatar::before {
+    content: "";
+    position: absolute;
+    top: -10px;
+    left: 50%;
+    width: 18px;
+    height: 13px;
+    transform: translateX(-50%) rotate(-8deg);
+    background: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 20 14'%3E%3Cdefs%3E%3ClinearGradient id='g' x1='0' y1='0' x2='0' y2='1'%3E%3Cstop offset='0' stop-color='%23FFEFB8'/%3E%3Cstop offset='.5' stop-color='%23F1C34E'/%3E%3Cstop offset='1' stop-color='%23B98512'/%3E%3C/linearGradient%3E%3C/defs%3E%3Cpath d='M1.5 13L1 3.2L6 7.2L10 1L14 7.2L19 3.2L18.5 13Z' fill='url(%23g)' stroke='%236E4C06' stroke-width='1.1' stroke-linejoin='round'/%3E%3C/svg%3E") center / contain no-repeat;
+    filter: drop-shadow(0 1px 1px rgba(0, 0, 0, 0.35));
+}
+
+/* ───────────────────── Tómengi túymeler (FAB) ────────────────────────── */
+.fab {
+    position: fixed;
+    bottom: calc(16px + var(--safe-b));
+    z-index: 2000;
+    width: 50px;
+    height: 50px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: var(--text);
+    background: rgba(28, 36, 56, 0.82);
+    border: 1px solid var(--line-strong);
+    box-shadow: 0 12px 28px -10px rgba(0, 0, 0, 0.7);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    transition: transform 0.15s var(--ease), background-color 0.2s, color 0.2s;
+}
+.fab:active { transform: scale(0.92); }
+.fab.is-open { background: var(--text); color: var(--ink); border-color: transparent; }
+.menu-toggle-btn { left: 16px; }
+.chat-toggle-btn { right: 16px; }
+
+/* ⚜️ VIP dawıs chatı: mikrofon túymesi (chat túymesiniń shep jaǵında), kartochkada 🎤 */
+.voice-btn { right: 78px; }
+.voice-btn[hidden], .voice-btn [hidden] { display: none; }
+.voice-btn span { display: grid; place-items: center; }
+.voice-btn.is-on { color: #1A1300; background: linear-gradient(135deg, #FFE9A0, #F5C542 55%, #E0A92A); border-color: transparent; }
+.voice-btn.talking { box-shadow: 0 0 0 5px rgba(245, 197, 66, 0.35), 0 12px 28px -10px rgba(0, 0, 0, 0.7); }
+/* VIP emes oyınshı: túyme jabıq, tóbesinde altın «VIP» belgisi */
+.voice-btn .vip-lock { display: none; }
+.voice-btn.is-locked { color: var(--text-3); }
+.voice-btn.is-locked .vip-lock {
+    position: absolute; top: -6px; right: -10px;   /* joqarǵı oń múyeshte — znachok sıyaqlı */
+    display: block; padding: 1px 6px; border-radius: 999px;
+    font-size: 9px; font-weight: 800; letter-spacing: 0.06em; line-height: 1.4;
+    color: #1A1300; background: linear-gradient(90deg, #FFE9A0, #F5C542 55%, #E0A92A);
+    box-shadow: 0 2px 6px -2px rgba(245, 197, 66, 0.7);
+    pointer-events: none;
+}
+.voice-badge { display: none; }
+.player-card[data-voice="on"] .voice-badge,
+.player-card[data-voice="muted"] .voice-badge {
+    position: absolute; bottom: -8px; right: 8px; z-index: 2;
+    display: grid; place-items: center;
+    width: 22px; height: 22px; border-radius: 50%;
+    font-size: 11px; line-height: 1;
+    background: #1C2438; border: 1px solid rgba(245, 197, 66, 0.7);
+    cursor: pointer;
+}
+.player-card[data-voice="muted"] .voice-badge { border-color: var(--line-strong); opacity: 0.8; }
+.player-card.talking { outline: 2px solid rgba(245, 197, 66, 0.95); outline-offset: 2px; animation: voice-talk 0.9s ease-in-out infinite alternate; }
+@keyframes voice-talk { from { outline-color: rgba(245, 197, 66, 0.45); } to { outline-color: rgba(245, 197, 66, 1); } }
+@media (prefers-reduced-motion: reduce) { .player-card.talking { animation: none; } }
+
+/* Oqılmaǵan xabar belgisi */
+.chat-toggle-btn.has-unread::after {
+    content: "";
+    position: absolute;
+    top: 9px;
+    right: 9px;
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: var(--danger);
+    border: 2px solid #1C2438;
+}
+
+/* ─────────────────────────── Menyu paneli ────────────────────────────── */
+.menu-container {
+    position: fixed;
+    left: 16px;
+    bottom: calc(76px + var(--safe-b));
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    padding: 8px;
+    background: rgba(22, 29, 46, 0.94);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-pill);
+    box-shadow: var(--shadow-lg);
+    -webkit-backdrop-filter: blur(16px);
+    backdrop-filter: blur(16px);
+    transform-origin: bottom left;
+    animation: pop-in 0.25s var(--ease);
+}
+
+.menu-icon-btn {
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    transition: transform 0.12s, background-color 0.2s, color 0.2s, border-color 0.2s;
+}
+.menu-icon-btn span, .menu-icon-btn svg { pointer-events: none; }
+.menu-icon-btn span { display: grid; place-items: center; }
+.menu-icon-btn:active { transform: scale(0.88); }
+.menu-icon-btn.on { background: var(--text); color: var(--ink); border-color: transparent; }
+.menu-icon-btn.off { background: transparent; color: var(--text-3); }
+.menu-icon-btn.pop { animation: menu-pop 0.35s ease-out; }
+@keyframes menu-pop {
+    0%   { transform: scale(1); }
+    40%  { transform: scale(1.18); }
+    100% { transform: scale(1); }
+}
+.menu-icon-danger {
+    color: var(--danger);
+    background: rgba(255, 90, 95, 0.12);
+    border-color: rgba(255, 90, 95, 0.3);
+}
+
+/* ─────────────────────────────── Chat ────────────────────────────────── */
+.chat-container {
+    position: fixed;
+    left: 12px;
+    right: 12px;
+    bottom: calc(76px + var(--safe-b));
+    z-index: 2000;
+    max-width: 420px;
+    height: min(440px, 62vh);
+    margin: 0 auto;
+    flex-direction: column;
+    overflow: hidden;
+    background: rgba(20, 26, 41, 0.97);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-lg);
+    -webkit-backdrop-filter: blur(18px);
+    backdrop-filter: blur(18px);
+    animation: sheet-in 0.3s var(--ease);
+}
+
+.chat-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 10px 10px 10px 18px;
+    font-size: 16px;
+    font-weight: 800;
+    border-bottom: 1px solid var(--line);
+}
+
+.chat-messages {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    padding: 14px;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+
+.chat-msg {
+    max-width: 82%;
+    padding: 8px 12px;
+    font-size: 14px;
+    line-height: 1.35;
+    border-radius: 16px;
+    overflow-wrap: anywhere;
+}
+.chat-msg small {
+    display: block;
+    margin-bottom: 2px;
+    font-size: 12px;
+    font-weight: 700;
+}
+.other-msg {
+    align-self: flex-start;
+    background: rgba(255, 255, 255, 0.08);
+    border-bottom-left-radius: 6px;
+}
+.my-msg {
+    align-self: flex-end;
+    color: var(--ink);
+    background: var(--text);
+    border-bottom-right-radius: 6px;
+}
+.chat-msg.system-msg {
+    align-self: center;
+    max-width: 92%;
+    padding: 2px 8px;
+    font-size: 12px;
+    color: var(--text-3);
+    text-align: center;
+    background: none;
+}
+
+.chat-input-area {
+    display: flex;
+    gap: 8px;
+    padding: 10px;
+    border-top: 1px solid var(--line);
+}
+.chat-input-area input {
+    flex: 1;
+    min-width: 0;
+    height: 44px;
+    padding: 0 16px;
+    font: inherit;
+    font-size: 16px;
+    color: var(--text);
+    background: rgba(255, 255, 255, 0.06);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-pill);
+    outline: none;
+    transition: border-color 0.2s;
+}
+.chat-input-area input::placeholder { color: var(--text-3); }
+.chat-input-area input:focus { border-color: rgba(255, 255, 255, 0.4); }
+
+.send-btn {
+    flex-shrink: 0;
+    width: 44px;
+    height: 44px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: var(--ink);
+    background: var(--text);
+    transition: transform 0.15s var(--ease);
+}
+.send-btn:active { transform: scale(0.9); }
+
+/* Jabıq chat waqtında kelgen xabar */
+#chat-notification {
+    position: fixed;
+    right: 16px;
+    bottom: calc(76px + var(--safe-b));
+    z-index: 2000;
+    display: none;
+    max-width: min(280px, calc(100% - 32px));
+    padding: 10px 14px;
+    font-size: 14px;
+    line-height: 1.35;
+    color: var(--text);
+    overflow-wrap: anywhere;
+    background: rgba(22, 29, 46, 0.96);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-md);
+    box-shadow: var(--shadow-lg);
+    -webkit-backdrop-filter: blur(14px);
+    backdrop-filter: blur(14px);
+    opacity: 0;
+    transform: translateY(8px);
+    transition: opacity 0.25s, transform 0.25s var(--ease);
+    pointer-events: none;
+}
+#chat-notification.show { opacity: 1; transform: translateY(0); }
+
+/* ──────────────────────────── Juwmaq oknası ──────────────────────────── */
+.game-over-overlay {
+    position: fixed;
+    inset: 0;
+    z-index: 2000;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 20px;
+    background: rgba(6, 9, 16, 0.72);
+    -webkit-backdrop-filter: blur(8px);
+    backdrop-filter: blur(8px);
+    animation: fade-in 0.3s ease;
+}
+
+.game-over-content {
+    width: min(360px, 100%);
+    padding: 26px 18px 18px;
+    text-align: center;
+    background: linear-gradient(180deg, #1B2335 0%, #141A29 100%);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-lg);
+    animation: sheet-in 0.45s var(--ease);
+}
+
+.go-icon {
+    width: 56px;
+    height: 56px;
+    margin: 0 auto 12px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    color: var(--gold);
+    background: rgba(245, 196, 81, 0.14);
+}
+.game-over-content h2 {
+    margin-bottom: 18px;
+    font-size: 22px;
+    font-weight: 800;
+    letter-spacing: -0.3px;
+}
+
+.final-results {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+    margin-bottom: 16px;
+}
+
+.result-row {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    padding: 10px 12px;
+    text-align: left;
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+}
+.result-row.rank-1 {
+    background: rgba(245, 196, 81, 0.1);
+    border-color: rgba(245, 196, 81, 0.45);
+}
+
+.rr-rank {
+    flex: 0 0 auto;
+    width: 28px;
+    height: 28px;
+    border-radius: 50%;
+    display: grid;
+    place-items: center;
+    font-size: 13px;
+    font-weight: 800;
+    color: var(--text-2);
+    background: var(--surface-2);
+}
+.rank-1 .rr-rank { background: var(--gold); color: #2A1D00; }
+.rank-2 .rr-rank { background: var(--silver); color: #1D232E; }
+.rank-3 .rr-rank { background: var(--bronze); color: #2E1A0B; }
+.rank-out { opacity: 0.6; }
+
+.rr-name {
+    flex: 1;
+    min-width: 0;
+    font-size: 15px;
+    font-weight: 700;
+    white-space: nowrap;
+    overflow: hidden;
+    text-overflow: ellipsis;
+}
+.rr-you { font-weight: 600; color: var(--text-3); }
+
+.rr-delta {
+    flex-shrink: 0;
+    padding: 3px 9px;
+    font-size: 13px;
+    font-weight: 800;
+    font-variant-numeric: tabular-nums;
+    border-radius: var(--r-pill);
+}
+.rr-delta.up { color: var(--success); background: rgba(61, 214, 140, 0.12); }
+.rr-delta.down { color: var(--danger); background: rgba(255, 90, 95, 0.12); }
+
+/* ───────────────────────────── Stikerler ─────────────────────────────── */
+.animation-modal {
+    position: fixed;
+    inset: 0;
+    z-index: 5000;
+    display: flex;
+    align-items: flex-end;
+    justify-content: center;
+    padding: 12px 12px calc(12px + var(--safe-b));
+    background: rgba(6, 9, 16, 0.6);
+    -webkit-backdrop-filter: blur(6px);
+    backdrop-filter: blur(6px);
+    animation: fade-in 0.2s ease;
+}
+
+.animation-modal-content {
+    width: min(440px, 100%);
+    padding: 12px 14px 14px;
+    background: var(--sheet);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-lg);
+    animation: sheet-in 0.3s var(--ease);
+}
+
+.animation-header {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    padding: 0 0 12px 4px;
+    font-size: 16px;
+    font-weight: 800;
+}
+
+.animation-grid {
+    display: grid;
+    /* minmax(0, 1fr): ustun stiker animaciyasınıń óz (intrinsic) ólshemine qaramay
+       qısqaradı — iOS'ta júklengen lottie keńeyip, tor ekrannan shıǵıp ketpesin */
+    grid-template-columns: repeat(5, minmax(0, 1fr));
+    align-items: start;
+    gap: 8px;
+    max-height: min(320px, 50vh);
+    overflow-x: hidden;
+    overflow-y: auto;
+    overscroll-behavior: contain;
+}
+.animation-grid::-webkit-scrollbar { width: 4px; }
+.animation-grid::-webkit-scrollbar-thumb { background: rgba(255, 255, 255, 0.2); border-radius: 2px; }
+
+/* Kvadrat uyashıq — `padding-bottom: 100%` (ustun keńligine teń biyiklik). iOS WebKit
+   tor ishinde `aspect-ratio`-nı nadurıs esaplap, qatarlar qısılıp stikerler bir-biriniń
+   ústine shıǵatuǵın edi; padding usılı barlıq brauzerlerde birdey isleydi. */
+.animation-item {
+    position: relative;
+    min-width: 0;
+    height: 0;
+    padding: 0 0 100%;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.04);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.15s var(--ease), background-color 0.2s;
+}
+.animation-item:active { transform: scale(0.92); background: rgba(255, 255, 255, 0.1); }
+/* Animaciya uyashıq ishinde anıq ólshemde (inline width/height:100% ústinen jazıladı) */
+.animation-item lottie-player {
+    position: absolute;
+    top: 6px;
+    left: 6px;
+    display: block;
+    width: calc(100% - 12px) !important;
+    height: calc(100% - 12px) !important;
+}
+
+/* Toplam bólimleri (ulıwma + skinler) — stikerlerden anıq ajıralıwı ushın: bir «jol»
+   ishindegi segmentler, kishkene ikonka + atı; tańlanǵanı jaqtı. Jabıǵında — 🔒 */
+.sticker-tabs {
+    display: flex;
+    gap: 2px;
+    margin: 0 0 12px;
+    padding: 3px;
+    background: rgba(0, 0, 0, 0.22);
+    border: 1px solid var(--line);
+    border-radius: 14px;
+}
+.sticker-tab {
+    position: relative;
+    flex: 1 1 0;
+    min-width: 0;
+    height: 46px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    gap: 4px;
+    padding: 0 2px;
+    font: inherit;
+    color: var(--text-3);
+    background: transparent;
+    border: 0;
+    border-radius: 11px;
+    cursor: pointer;
+    transition: background-color 0.2s, color 0.2s, transform 0.15s var(--ease);
+}
+.sticker-tab:active { transform: scale(0.95); }
+.sticker-tab .st-ico { position: relative; display: grid; place-items: center; height: 18px; }
+.sticker-tab .st-ico img { width: 12px; height: 18px; pointer-events: none; }
+.sticker-tab .st-ico svg { width: 18px; height: 18px; }
+.sticker-tab .st-name {
+    max-width: 100%;
+    overflow: hidden;
+    font-size: 10.5px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.sticker-tab.is-active {
+    color: var(--text);
+    background: var(--surface-2);
+    box-shadow: inset 0 0 0 1px var(--line-strong);
+}
+.sticker-tab.is-locked .st-ico img { opacity: 0.55; }
+.sticker-tab .tab-lock {
+    position: absolute;
+    right: -9px;
+    bottom: -3px;
+    font-size: 8px;
+}
+.animation-grid[hidden], .sticker-lock[hidden] { display: none; }
+/* Ulıwma tor menen birdey turaqlı biyiklik — bólim almasqanda panel sekirmeydi */
+.sticker-body {
+    display: flex;
+    flex-direction: column;
+    height: min(320px, 50vh);
+}
+.sticker-body > #sticker-general { flex: 1 1 auto; max-height: none; align-content: start; }
+/* Skin toplamı: 4 úlken stiker (2×2) orayda */
+.animation-grid.is-pack {
+    flex: 1 1 auto;
+    grid-template-columns: repeat(2, minmax(0, 118px));
+    justify-content: center;
+    align-content: center;
+    max-height: none;
+}
+.sticker-item img {
+    position: absolute;
+    top: 4px;
+    left: 4px;
+    width: calc(100% - 8px);
+    height: calc(100% - 8px);
+    pointer-events: none;
+}
+.sticker-item.is-locked img { opacity: 0.45; filter: grayscale(0.5); }
+.sticker-lock {
+    flex: none;
+    margin-top: 8px;
+    padding: 10px 12px;
+    font-size: 13px;
+    font-weight: 600;
+    line-height: 1.35;
+    text-align: center;
+    color: var(--text-2);
+    background: rgba(245, 197, 66, 0.08);
+    border: 1px solid rgba(245, 197, 66, 0.25);
+    border-radius: 12px;
+}
+.sticker-lock.nudge { animation: sticker-nudge 0.4s ease; }
+@keyframes sticker-nudge {
+    20%, 60% { transform: translateX(-5px); }
+    40%, 80% { transform: translateX(5px); }
+}
+
+/* ───────── Oyınshı profili: kartochka basılǵanda kishkene popup ───────── */
+.pop-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: 4500;
+    background: rgba(6, 9, 16, 0.35);
+    animation: fade-in 0.15s ease;
+}
+.pop-backdrop[hidden], .player-pop[hidden] { display: none; }
+.player-pop {
+    position: fixed;
+    z-index: 4600;
+    padding: 14px;
+    background: var(--sheet);
+    border: 1px solid var(--line-strong);
+    border-radius: var(--r-lg);
+    box-shadow: var(--shadow-lg);
+    transform-origin: var(--ax, 50%) 0;
+    animation: pp-in 0.18s var(--ease);
+}
+.player-pop.is-above { transform-origin: var(--ax, 50%) 100%; }
+@keyframes pp-in { from { opacity: 0; transform: scale(0.9); } }
+/* Kartochkaǵa qaraǵan ushlıq */
+.player-pop::before {
+    content: "";
+    position: absolute;
+    top: -8px;
+    left: calc(var(--ax, 50%) - 7px);
+    width: 14px;
+    height: 14px;
+    background: var(--sheet);
+    border-top: 1px solid var(--line-strong);
+    border-left: 1px solid var(--line-strong);
+    transform: rotate(45deg);
+}
+.player-pop.is-above::before {
+    top: auto;
+    bottom: -8px;
+    border: 0;
+    border-right: 1px solid var(--line-strong);
+    border-bottom: 1px solid var(--line-strong);
+}
+.pp-head { position: relative; display: flex; align-items: center; gap: 10px; }
+.player-pop .pp-avatar { width: 42px; height: 42px; border-radius: 12px; font-size: 18px; }
+.player-pop .pp-avatar[data-c="yellow"] { color: #2E2205; }
+.pp-who { flex: 1 1 auto; min-width: 0; }
+.pp-name { display: flex; align-items: center; gap: 6px; font-size: 16px; font-weight: 800; }
+.pp-name > span:first-child { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.pp-vip {
+    flex: none;
+    padding: 1px 6px;
+    border-radius: 999px;
+    font-size: 10px;
+    font-weight: 800;
+    color: #1A1300;
+    background: linear-gradient(90deg, #FFE9A0, #F5C542 55%, #E0A92A);
+}
+.pp-league { margin-top: 3px; font-size: 12.5px; font-weight: 600; color: var(--text-2); }
+.pp-league b { color: var(--text); }
+.pp-skin { flex: none; width: 24px; height: 36px; }
+.pp-skel {
+    display: inline-block;
+    width: 110px;
+    height: 10px;
+    border-radius: 5px;
+    background: var(--surface-2);
+    animation: pp-skel 0.9s ease-in-out infinite alternate;
+}
+@keyframes pp-skel { to { opacity: 0.35; } }
+.pp-stats {
+    display: grid;
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+    margin-top: 12px;
+    padding: 10px 0;
+    text-align: center;
+    border-top: 1px solid var(--line);
+    border-bottom: 1px solid var(--line);
+}
+.pp-stat b { display: block; font-size: 16px; font-weight: 800; font-variant-numeric: tabular-nums; }
+.pp-stat span {
+    display: block;
+    margin-top: 2px;
+    overflow: hidden;
+    font-size: 10.5px;
+    font-weight: 600;
+    color: var(--text-3);
+    white-space: nowrap;
+    text-overflow: ellipsis;
+}
+.pp-note {
+    margin-top: 10px;
+    padding: 8px 10px;
+    font-size: 12.5px;
+    font-weight: 600;
+    text-align: center;
+    color: var(--text-2);
+    background: var(--surface);
+    border-radius: 10px;
+}
+.pp-actions {
+    display: grid;
+    grid-auto-flow: column;
+    grid-auto-columns: minmax(0, 1fr);
+    gap: 6px;
+    margin-top: 12px;
+}
+.pp-act {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 5px;
+    padding: 9px 4px;
+    font: inherit;
+    font-size: 11.5px;
+    font-weight: 700;
+    line-height: 1.15;
+    text-align: center;
+    color: var(--text);
+    background: var(--surface);
+    border: 1px solid var(--line);
+    border-radius: 12px;
+    cursor: pointer;
+    transition: transform 0.15s var(--ease), background-color 0.2s;
+}
+.pp-act:active { transform: scale(0.95); }
+.pp-act svg { width: 20px; height: 20px; }
+.pp-act.is-on { color: var(--danger); background: rgba(255, 90, 95, 0.1); border-color: rgba(255, 90, 95, 0.35); }
+
+.flying-animation {
+    position: fixed;
+    z-index: 4000;
+    width: 100px;
+    height: 100px;
+    transform: translate(-50%, -50%);
+    transition: all 1s ease-in-out;
+    pointer-events: none;
+}
+
+/* Lobbidegi «Oyınǵa qosılıw» */
+.controls { display: flex; justify-content: center; margin-top: 16px; }
+.controls:empty { display: none; }
+
+/* ─────────────────────────────── Animaciyalar ────────────────────────── */
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes sheet-in {
+    from { opacity: 0; transform: translateY(16px) scale(0.98); }
+    to   { opacity: 1; transform: none; }
+}
+@keyframes pop-in {
+    from { opacity: 0; transform: scale(0.9); }
+    to   { opacity: 1; transform: none; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+    .slot-wait i,
+    .dice-container.active::after,
+    .piece.highlight::before,
+    .piece.highlight::after,
+    .ludo-board::before { animation: none !important; }
+    /* Animaciyasız da kimniń náwbeti ekeni kórinsin — ramka turaqlı qarańǵılaw */
+    .ludo-board::before { opacity: 1; }
+    .dice-container.active::after { opacity: 0; }
+    .dice-container.active { box-shadow: 0 0 0 3px var(--pc); }
+    .chat-container, .menu-container, .game-over-content,
+    .animation-modal-content, .game-over-overlay, .animation-modal { animation: none; }
+}
+
+/* Kishi ekranlar (≤360px) — kartochka hám kubik az ıqsham */
+@media (max-width: 360px) {
+    #board-container { padding: 10px 8px 0; }
+    .player-card { padding: 5px 8px 5px 5px; gap: 6px; }
+    .avatar { width: 26px; height: 26px; font-size: 12px; border-radius: 8px; }
+    .player-name { font-size: 12px; }
+    .dice-container { width: 42px; height: 42px; }
+}
+
+/* ═══ OPTIMIST LUDO CUSTOMIZATIONS ═══ */
+.ludo-board {
+    position: relative;
+    z-index: 10;
+    display: block !important;
+    width: 100%;
+    max-width: 440px;
+    aspect-ratio: 1;
+    margin: 0 auto;
+    overflow: visible;
+    background: var(--board-bg, #0B0E1F);
+    border-radius: 16px;
+    box-shadow: 0 16px 36px -12px rgba(0, 0, 0, 0.85);
+}
+
+.board-grid-inner {
+    position: absolute;
+    top: 10.1%;
+    left: 6.4%;
+    width: 87.2%;
+    height: 83.5%;
+    display: grid;
+    grid-template-columns: repeat(15, 1fr);
+    grid-template-rows: repeat(15, 1fr);
+    z-index: 2;
+}
+
+.ludo-board::before {
+    display: none !important;
+}
+
+/* Поворот углов баз под доски: Green (верх-лево), Yellow (верх-право), Blue (низ-право), Red (низ-лево) */
+#cell-1-1.base-spot, #cell-1-10.base-spot,
+#cell-10-10.base-spot, #cell-10-1.base-spot   { transform: translate(50%, 50%); }
+#cell-1-4.base-spot, #cell-1-13.base-spot,
+#cell-10-13.base-spot, #cell-10-4.base-spot   { transform: translate(-50%, 50%); }
+#cell-4-1.base-spot, #cell-4-10.base-spot,
+#cell-13-10.base-spot, #cell-13-1.base-spot   { transform: translate(50%, -50%); }
+#cell-4-4.base-spot, #cell-4-13.base-spot,
+#cell-13-13.base-spot, #cell-13-4.base-spot   { transform: translate(-50%, -50%); }
+
+/* Фигурка персонажа: стоит чётко от нижней грани до верхней */
+.piece {
+    --ty: -88%;
+    position: absolute;
+    z-index: 100;
+    width: 92%;
+    height: auto;
+    aspect-ratio: 40 / 56;
+    transform: translate(-50%, var(--ty));
+    transition: top 0.2s, left 0.2s;
+    cursor: pointer;
+}
+.base-spot .piece { --ty: -75%; width: 115%; }
+
+.piece::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    background: var(--pin) center bottom / contain no-repeat;
+    filter: drop-shadow(0 3px 4px rgba(0, 0, 0, 0.75));
+    transform-origin: 50% 88%;
+}
+
+/* Светящееся кольцо игрока под ногами персонажа */
+.piece::before {
+    content: "";
+    position: absolute;
+    left: 50%;
+    top: 88%;
+    width: 68%;
+    aspect-ratio: 1;
+    border-radius: 50%;
+    border: 2.5px solid var(--player-color, #fff);
+    background: radial-gradient(circle, rgba(255,255,255,0.25) 0%, transparent 70%);
+    box-shadow: 0 0 8px var(--player-color, #fff);
+    transform: translate(-50%, -50%);
+}
+.base-spot .piece::before { top: 75%; }
+
+/* Единый центральный кубик внизу экрана */
+.center-dice-dock {
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    margin-top: 14px;
+    position: relative;
+    z-index: 60;
+}
+
+.center-dice-dock .dice-container {
+    visibility: visible !important;
+    width: 58px;
+    height: 58px;
+    border-radius: 16px;
+    background: rgba(28, 36, 56, 0.92);
+    border: 2px solid var(--pc, var(--line-strong));
+    box-shadow: 0 8px 24px -6px rgba(0, 0, 0, 0.7);
+    transition: border-color 0.25s, transform 0.15s;
+}
+
+.center-dice-dock .die-list {
+    width: 38px;
+    height: 38px;
+}
+
+/* Полностью скрываем любые упоминания VIP в UI */
+.vip-tag, .vip-lock, .pp-vip, .fav-lock, .theme-lock, #vip-card {
+    display: none !important;
+}
+
+
+/* Telegram Profile Photo Avatars on Board & Popups */
+.avatar, .slot-avatar, .pp-avatar {
+    background-size: cover !important;
+    background-position: center !important;
+    overflow: hidden;
+}
