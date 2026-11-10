@@ -192,28 +192,30 @@ class BotRoomTests(unittest.TestCase):
         self.assertIn('window.__LUDO_SERVER_ROOM_CODE__ = "";', page)
 
 
-    def test_waiting_group_keyboard_opens_mini_app_directly_without_join_or_start_buttons(self):
+    def test_waiting_group_keyboard_uses_main_mini_app_startapp_link(self):
         room = self.make_room([])
         room["code"] = "ABC123"
         keyboard = server.render_tg_lobby_kb(room)
         buttons = [button for row in keyboard.inline_keyboard for button in row]
         self.assertEqual(len(buttons), 1)
         self.assertEqual(buttons[0].text, "🎲 Открыть игру")
-        self.assertIsNotNone(buttons[0].web_app)
-        self.assertEqual(buttons[0].web_app.url, f"{server.WEBAPP_URL}/room/ABC123")
+        self.assertEqual(buttons[0].url, "https://t.me/Ludo_optimist_bot?startapp=join_ABC123")
+        self.assertIsNone(buttons[0].web_app)
         self.assertIsNone(buttons[0].callback_data)
 
-    def test_team_mode_has_direct_web_app_links_for_both_teams(self):
+    def test_team_mode_uses_startapp_links_for_both_teams(self):
         room = self.make_room([])
         room["code"] = "ABC123"
         room["game_mode"] = "TEAM"
         keyboard = server.render_tg_lobby_kb(room)
         buttons = [button for row in keyboard.inline_keyboard for button in row]
         self.assertEqual([button.text for button in buttons], ["🔴🟡 Команда A", "🟢🔵 Команда B"])
-        self.assertEqual(buttons[0].web_app.url, f"{server.WEBAPP_URL}/room/ABC123_A")
-        self.assertEqual(buttons[1].web_app.url, f"{server.WEBAPP_URL}/room/ABC123_B")
+        self.assertEqual(buttons[0].url, "https://t.me/Ludo_optimist_bot?startapp=join_ABC123_A")
+        self.assertEqual(buttons[1].url, "https://t.me/Ludo_optimist_bot?startapp=join_ABC123_B")
+        self.assertIsNone(buttons[0].web_app)
+        self.assertIsNone(buttons[1].web_app)
 
-    def test_started_group_button_reopens_the_game_directly(self):
+    def test_started_group_button_reopens_the_game_with_startapp(self):
         room = self.make_room([{
             "user_id": "human-1", "name": "Player", "color": "green",
             "team": "B", "skin": "optimist", "finished": False,
@@ -223,7 +225,8 @@ class BotRoomTests(unittest.TestCase):
         keyboard = server.render_tg_lobby_kb(room)
         button = keyboard.inline_keyboard[0][0]
         self.assertEqual(button.text, "🎮 Вернуться в игру")
-        self.assertEqual(button.web_app.url, f"{server.WEBAPP_URL}/room/ABC123")
+        self.assertEqual(button.url, "https://t.me/Ludo_optimist_bot?startapp=join_ABC123")
+        self.assertIsNone(button.web_app)
 
     def test_lobby_waits_for_second_player_then_starts_fifteen_second_countdown(self):
         async def run():
