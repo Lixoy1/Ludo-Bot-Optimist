@@ -1577,6 +1577,12 @@ svg { display: block; flex-shrink: 0; }
 @keyframes voice-record-pulse { from { box-shadow: 0 0 0 0 rgba(217,54,77,.25); } to { box-shadow: 0 0 0 7px rgba(217,54,77,.2); } }
 .voice-message-audio { display: block; width: min(260px, 100%); height: 38px; margin-top: 8px; }
 .voice-message-caption { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
+.voice-player { display: flex; align-items: center; gap: 9px; width: min(260px, 100%); min-width: 190px; margin-top: 8px; }
+.voice-play { width: 34px; height: 34px; flex: 0 0 34px; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--text); background: rgba(255,255,255,.1); font-weight: 800; cursor: pointer; }
+.voice-play:disabled { opacity: .55; cursor: wait; }
+.voice-track { height: 6px; flex: 1; min-width: 50px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.2); cursor: pointer; }
+.voice-progress { height: 100%; width: 0; border-radius: 99px; background: var(--accent, #d7b65d); }
+.voice-duration { color: var(--text-2); font-size: 11px; white-space: nowrap; font-variant-numeric: tabular-nums; }
 
 
 /* Player portrait captions and turn commentary, adapted from the first Ludo lobby UI. */
