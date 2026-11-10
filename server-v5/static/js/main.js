@@ -1,11 +1,14 @@
-const tg = window.Telegram.WebApp;
-tg.expand();
+// Telegram must receive ready() immediately, before any optional SDK call.
+ // Keep the Mini App loader from hanging if expand() is unavailable in a client build.
+const tg = window.Telegram?.WebApp || {};
+try { if (typeof tg.ready === "function") tg.ready(); } catch (e) { console.warn("Telegram ready:", e); }
+try { if (typeof tg.expand === "function") tg.expand(); } catch (e) { console.warn("Telegram expand:", e); }
 
 // ─────────────────── Telegram «chrome» (header/fon/lifecycle) ────────────────
 // Mini App'tı Telegram interfeysi menen tegis qospalastıramız. Barlıq shaqırıwlar
 // qátege shıdamlı: eski Telegram versiyalarında yamasa lokal brauzerde (dev)
 // bul metodlar bolmawı múmkin — bolmasa úndemey ótkerip jiberemiz.
-try { tg.ready && tg.ready(); } catch (e) {}
+// ready() is called at the top of this file before optional SDK methods.
 // Header hám fon oyınnıń qara temasına sáykes (aq/kók default header oyın ústinde
 // «jamaw» bolıp turmawı ushın). Reń style.css-tegi --bg-1 penen birdey.
 try { tg.setHeaderColor && tg.setHeaderColor('#10162A'); } catch (e) {}
