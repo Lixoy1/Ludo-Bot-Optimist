@@ -2206,20 +2206,34 @@ async function startVoiceNoteRecording() {
     }
 
     try {
-        // Telegram Android WebView can show its native permission dialog on every
-        // getUserMedia call. Keep one approved stream for this Mini App page session.
+        // Prime microphone permission only once per Mini App page session.
+        // The native permission prompt steals focus from the WebView, so do not
+        // try to record in the same press that opens the permission dialog.
         let stream = voiceNoteStream;
-        if (!stream || !stream.getAudioTracks().some(track => track.readyState === "live")) {
+        const hasLiveCachedStream = !!stream &&
+            stream.getAudioTracks().some(track => track.readyState === "live");
+
+        if (!hasLiveCachedStream) {
             stream = await navigator.mediaDevices.getUserMedia({
                 audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
             });
             voiceNoteStream = stream;
-            stream.getAudioTracks().forEach(track => { track.enabled = false; });
+            stream.getAudioTracks().forEach(track => {
+                track.enabled = false;
+                track.addEventListener("ended", () => {
+                    if (voiceNoteStream === stream) voiceNoteStream = null;
+                }, { once: true });
+            });
+            voiceStartPending = false;
+            voicePressActive = false;
+            voicePressPointerId = null;
+            resetVoiceNoteButton();
+            showChatNotification("", "Доступ к микрофону сохранён. Теперь зажми кнопку и говори.", null, 4500);
+            return;
         }
 
-        // The user may release while Android's first-time permission prompt is open.
+        // A cached live stream is reused; getUserMedia is not called again.
         if (!voicePressActive) {
-            stream.getAudioTracks().forEach(track => { track.enabled = false; });
             voiceStartPending = false;
             resetVoiceNoteButton();
             return;
@@ -2354,8 +2368,12 @@ function bindVoiceNoteButton() {
         event.preventDefault();
         stopVoiceNoteRecording();
     });
-    window.addEventListener("blur", () => {
-        if (voicePressActive) stopVoiceNoteRecording();
+    // Do not stop on window blur: Telegram's microphone permission UI blurs the WebView.
+    // A real release is handled by document-level pointerup/pointercancel above.
+    document.addEventListener("visibilitychange", () => {
+        if (document.visibilityState === "hidden" && voiceNoteRecorder?.state === "recording") {
+            stopVoiceNoteRecording();
+        }
     });
 }
 
@@ -2368,8 +2386,9 @@ window.addEventListener("pagehide", () => {
     if (voiceNoteRecorder && voiceNoteRecorder.state === "recording") {
         try { voiceNoteRecorder.stop(); } catch (_) {}
     }
-    if (voiceNoteStream) voiceNoteStream.getTracks().forEach(track => track.stop());
-    voiceNoteStream = null;
+    if (voiceNoteStream) {
+        voiceNoteStream.getAudioTracks().forEach(track => { track.enabled = false; });
+    }
     voiceNoteRecorder = null;
     voicePressActive = false;
     voicePressPointerId = null;
