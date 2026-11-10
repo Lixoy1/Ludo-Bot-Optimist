@@ -539,6 +539,22 @@ async function handleMessage(data) {
             latestRoomState = data;
             setTurnSeconds(data.game_mode);
             updateRoomUI(data);
+            // Keep the lobby visible while the room is waiting; the old markup
+            // hid the lobby and showed an empty board before GAME_STARTED.
+            if (data.status === "WAITING") {
+                document.getElementById("game-info").style.display = "block";
+                document.getElementById("board-container").style.display = "none";
+            } else if (data.status === "PLAYING") {
+                document.getElementById("game-info").style.display = "none";
+                document.getElementById("board-container").style.display = "block";
+                if (data.board_state) {
+                    initBoardUI(data);
+                    await renderPieces(data.board_state);
+                }
+            }
+            // Update player membership immediately so the mic button is not
+            // hidden while players are still in the lobby.
+            Voice.setPlayers(data.players || []);
             if (data.status === "PLAYING" && data.turn) {
                 startLocalTimer(data.turn, data.timer || turnSeconds);
                 if (data.turn === myColor && activeTurnColor !== data.turn) {
