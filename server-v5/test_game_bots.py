@@ -88,12 +88,13 @@ class BotRoomTests(unittest.TestCase):
             room["sockets"] = {"human-1": recorder}
             server.ROOM_LOCKS[room["code"]] = asyncio.Lock()
             armed = []
-            with patch.object(server.random, "randint", return_value=6), \\
-                 patch.object(server, "arm_turn_timer", side_effect=lambda r: armed.append(r["code"])), \\
-                 patch.object(server, "asyncio", SimpleNamespace(
-                     sleep=fast_sleep, current_task=asyncio.current_task
-                 )):
-                await server.auto_roll_until_six(room, "green")
+            with (
+                patch.object(server.random, "randint", return_value=6),
+                patch.object(server, "arm_turn_timer", side_effect=lambda r: armed.append(r["code"])),
+                patch.object(server, "asyncio", SimpleNamespace(
+                    sleep=fast_sleep, current_task=asyncio.current_task
+                )),
+            ):
             self.assertEqual(room["dice"], 6)
             self.assertTrue(room["players"][0]["opening_roll_completed"])
             self.assertEqual(len(armed), 1)
