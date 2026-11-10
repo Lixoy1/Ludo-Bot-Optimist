@@ -16,8 +16,7 @@ function roomCode({ startParam = "", initData = "", search = "", hash = "", path
     navigator: { language: "ru" },
     console
   };
-  vm.runInNewContext(script, context);
-  return context.ROOM_CODE;
+  return vm.runInNewContext(script + "\nROOM_CODE;", context);
 }
 assert.equal(roomCode({ startParam: "join_TSXTEP" }), "TSXTEP");
 assert.equal(roomCode({ startParam: "TSXTEP" }), "TSXTEP");
