@@ -84,6 +84,7 @@ class BotRoomTests(unittest.TestCase):
                 "team": "B", "skin": "optimist", "finished": False,
                 "opening_roll_completed": False,
             }])
+            room["status"] = "PLAYING"
             recorder = Recorder()
             room["sockets"] = {"human-1": recorder}
             server.ROOM_LOCKS[room["code"]] = asyncio.Lock()
@@ -111,6 +112,7 @@ class BotRoomTests(unittest.TestCase):
             "team": "B", "skin": "optimist", "finished": False,
             "opening_roll_completed": True,
         }])
+        room["status"] = "PLAYING"
         server.ROOM_LOCKS[room["code"]] = asyncio.Lock()
         armed = []
         with patch.object(server, "arm_turn_timer", side_effect=lambda r: armed.append(r["code"])):
