@@ -1978,3 +1978,59 @@ svg { display: block; flex-shrink: 0; }
 #ludo-board[data-theme="neon"] .piece::after {
     filter:drop-shadow(0 3px 5px rgba(0,0,0,.62)) drop-shadow(0 0 3px color-mix(in srgb,var(--player-color) 40%,transparent));
 }
+
+
+/* Classic base sockets are attached to the actual four home cells.
+   This makes each socket share the exact transformed anchor used by its piece. */
+#ludo-board[data-theme="classic"] .cell.base-spot::before {
+    content:"";
+    position:absolute;
+    z-index:2;
+    left:50%;
+    top:50%;
+    width:88%;
+    aspect-ratio:1;
+    transform:translate(-50%,-50%);
+    border-radius:50%;
+    pointer-events:none;
+    background:radial-gradient(circle at 32% 25%,#FFFFFF 0%,#FBFAF5 38%,#EEECE4 74%,#E2DFD4 100%);
+    border:2.5px solid var(--socket-edge,#8EAD95);
+    box-shadow:inset 0 2px 4px rgba(255,255,255,.95),inset 0 -3px 6px rgba(45,52,44,.14),0 2px 5px rgba(38,43,36,.20),0 0 0 2px rgba(255,255,255,.78);
+}
+#ludo-board[data-theme="classic"] .cell.base-spot.spot-green { --socket-edge:#7EAA8A; }
+#ludo-board[data-theme="classic"] .cell.base-spot.spot-yellow { --socket-edge:#C2A75D; }
+#ludo-board[data-theme="classic"] .cell.base-spot.spot-blue { --socket-edge:#7D9FBD; }
+#ludo-board[data-theme="classic"] .cell.base-spot.spot-red { --socket-edge:#C18B84; }
+#ludo-board[data-theme="classic"] .cell.base-spot .piece { z-index:100 !important; }
+
+/* Branded classic frame: a restrained four-colour enamel edge. */
+#ludo-board[data-theme="classic"] {
+    border:4px solid transparent;
+    background:linear-gradient(#F4F1E9,#F4F1E9) padding-box,
+      linear-gradient(135deg,#78A98A 0%,#D7B86B 28%,#789DBD 52%,#C58C84 76%,#78A98A 100%) border-box;
+    box-shadow:0 9px 24px rgba(8,13,22,.22),inset 0 0 0 2px rgba(255,255,255,.82),0 0 0 1px rgba(255,255,255,.2);
+}
+.classic-board-brand {
+    display:none;
+    order:5;
+    grid-column:1 / -1;
+    align-items:center;
+    justify-content:center;
+    gap:10px;
+    min-height:32px;
+    margin:0 auto 2px;
+    padding:3px 18px;
+    width:max-content;
+    max-width:100%;
+    border:1px solid rgba(211,183,112,.72);
+    border-radius:999px;
+    background:linear-gradient(180deg,rgba(255,255,255,.10),rgba(255,255,255,.025));
+    color:#E8D6A4;
+    font-size:13px;
+    font-weight:900;
+    letter-spacing:2.4px;
+    text-shadow:0 1px 2px rgba(0,0,0,.45),0 0 10px rgba(211,183,112,.24);
+    box-shadow:inset 0 1px 0 rgba(255,255,255,.28),0 3px 12px rgba(0,0,0,.16);
+}
+.classic-board-brand:not([hidden]) { display:flex; }
+.classic-board-brand .brand-crown { color:#D8B96D; font-size:17px; filter:drop-shadow(0 1px 2px rgba(0,0,0,.4)); }
