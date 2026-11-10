@@ -56,6 +56,8 @@ jobs:
       - name: Check browser JavaScript syntax
         run: |
           node --check server-v5/static/js/main.js
+          grep -q 'Telegram must receive ready() immediately' server-v5/static/js/main.js
+          grep -q 'try { if (typeof tg.ready === "function") tg.ready(); }' server-v5/static/js/main.js
           python - <<'PY'
           from pathlib import Path
           import re
