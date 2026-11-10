@@ -10,6 +10,7 @@
     <link rel="stylesheet" href="/static/css/style.css?v=50">
     <link rel="stylesheet" href="/static/css/skins.css?v=1">
     <script>
+        window.__LUDO_SERVER_ROOM_CODE__ = "";
         function resolveLudoRoomCode() {
             const webApp = window.Telegram?.WebApp;
             const query = new URLSearchParams(window.location.search || "");
@@ -25,6 +26,8 @@
                 return out.trim();
             };
             const candidates = [
+                window.__LUDO_SERVER_ROOM_CODE__,
+                query.get("room"), query.get("room_code"),
                 webApp?.initDataUnsafe?.start_param, initData.get("start_param"),
                 nested.get("start_param"), query.get("tgWebAppStartParam"),
                 query.get("startapp"), query.get("start_param"),
@@ -41,7 +44,7 @@
             }
             return "";
         }
-        let ROOM_CODE = resolveLudoRoomCode();
+        let ROOM_CODE = window.__LUDO_SERVER_ROOM_CODE__ || resolveLudoRoomCode();
         window.__resolveLudoRoomCode = resolveLudoRoomCode;
         const LANG = (() => {
             const code = (window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code || navigator.language || "ru").toLowerCase().split("-")[0];
@@ -458,7 +461,7 @@
     <script src="/static/js/sticker_sfx.js?v=1"></script>
     <script src="/static/js/themes.js?v=1"></script>
     <script src="/static/js/voice.js?v=5"></script>
-    <script src="/static/js/main.js?v=7529"></script>
+    <script src="/static/js/main.js?v=7530"></script>
 
 
 </body></html>

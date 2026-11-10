@@ -829,7 +829,7 @@ async def cb_start_game(call: types.CallbackQuery):
     enter_kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(
             text="🎮 Войти в игру",
-            url=f"https://t.me/Ludo_optimist_bot?startapp=join_{code}"
+            url=f"https://t.me/Ludo_optimist_bot?startapp={code}"
         )
     ]])
     try:
@@ -913,14 +913,50 @@ async def healthz():
         raise HTTPException(status_code=503, detail="Database unavailable")
     return {"status": "ok"}
 
+def normalize_room_code(raw_code: str) -> str:
+    code = str(raw_code or "").strip().upper()
+    if code.startswith("JOIN_"):
+        code = code[5:]
+    if code.startswith("ROOM_"):
+        code = code[5:]
+    if not code:
+        return ""
+    parts = code.split("_")
+    base = parts[0]
+    if len(base) != 6 or not all(ch in string.ascii_uppercase + string.digits for ch in base):
+        raise ValueError("Invalid room code")
+    if len(parts) == 2 and parts[1] in ("A", "B"):
+        return code
+    if len(parts) == 1:
+        return base
+    raise ValueError("Invalid room suffix")
+
+def render_game_page_html(room_code: str = "") -> str:
+    """Render index.html with a trusted room code embedded by the server."""
+    page_path = os.path.join(os.path.dirname(__file__), "index.html")
+    with open(page_path, "r", encoding="utf-8") as page:
+        html = page.read()
+    marker = 'window.__LUDO_SERVER_ROOM_CODE__ = "";'
+    if marker not in html:
+        raise RuntimeError("Room-code injection marker is missing from index.html")
+    return html.replace(marker, f"window.__LUDO_SERVER_ROOM_CODE__ = {json.dumps(room_code)};", 1)
+
 @app.get("/")
 @app.get("/room/{room_code}")
-async def game_page(room_code: str = "DEMO"):
-    if len(room_code) > 10 or not all(c in string.ascii_uppercase + string.digits + "_" for c in room_code):
+async def game_page(request: Request, room_code: str = ""):
+    raw_code = room_code or (
+        request.query_params.get("room_code")
+        or request.query_params.get("room")
+        or request.query_params.get("tgWebAppStartParam")
+        or request.query_params.get("startapp")
+        or request.query_params.get("start_param")
+        or ""
+    )
+    try:
+        code = normalize_room_code(raw_code)
+    except ValueError:
         return HTMLResponse("Invalid room code", status_code=400)
-    with open("index.html", "r", encoding="utf-8") as f:
-        html = f.read().replace('const ROOM_CODE = "KOL541";', f'const ROOM_CODE = "{room_code}";')
-    return HTMLResponse(html)
+    return HTMLResponse(render_game_page_html(code))
 
 @app.get("/cabinet")
 async def cabinet_page():

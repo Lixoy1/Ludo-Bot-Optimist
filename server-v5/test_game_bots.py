@@ -178,5 +178,18 @@ class BotRoomTests(unittest.TestCase):
             self.assertEqual(len(room["players"]), 4)
         asyncio.run(run())
 
+    def test_room_page_embeds_server_resolved_code(self):
+        page = server.render_game_page_html("TSXTEP")
+        self.assertIn('window.__LUDO_SERVER_ROOM_CODE__ = "TSXTEP";', page)
+        self.assertIn('let ROOM_CODE = window.__LUDO_SERVER_ROOM_CODE__ || resolveLudoRoomCode();', page)
+
+    def test_room_page_embeds_team_suffix(self):
+        page = server.render_game_page_html("TSXTEP_A")
+        self.assertIn('window.__LUDO_SERVER_ROOM_CODE__ = "TSXTEP_A";', page)
+
+    def test_root_page_does_not_inject_demo_as_real_room(self):
+        page = server.render_game_page_html("")
+        self.assertIn('window.__LUDO_SERVER_ROOM_CODE__ = "";', page)
+
 if __name__ == "__main__":
     unittest.main()

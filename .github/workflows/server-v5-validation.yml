@@ -30,6 +30,9 @@ jobs:
           grep -q 'id="lobby-start-bots"' server-v5/index.html
           grep -q 'START_WITH_BOTS' server-v5/static/js/main.js
           grep -q 'lobby_deadline' server-v5/server.py
+          grep -q 'def render_game_page_html' server-v5/server.py
+          grep -q 'window.__LUDO_SERVER_ROOM_CODE__' server-v5/index.html
+          grep -q 'bootRoomConnection' server-v5/static/js/main.js
       - name: Check browser JavaScript syntax
         run: |
           node --check server-v5/static/js/main.js

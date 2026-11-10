@@ -365,30 +365,56 @@ function playSound(name) {
     }
 }
 
-try { tg.ready && tg.ready(); } catch (e) {}
-if (!ROOM_CODE && typeof window.__resolveLudoRoomCode === "function") {
-    ROOM_CODE = window.__resolveLudoRoomCode();
-}
 let teamParam = null;
-let cleanRoomCode = typeof ROOM_CODE !== 'undefined' ? ROOM_CODE : "";
+let cleanRoomCode = "";
+let roomConnectionStarted = false;
 
-if (typeof ROOM_CODE !== 'undefined' && ROOM_CODE.includes("_")) {
-    const parts = ROOM_CODE.split("_");
-    // Tek TEAM mode ushın _A yamasa _B boladı
-    if (parts[parts.length - 1] === "A" || parts[parts.length - 1] === "B") {
-        teamParam = parts.pop();
-        cleanRoomCode = parts.join("_");
+function applyResolvedRoomCode(rawCode) {
+    const code = String(rawCode || "").trim().toUpperCase().replace(/^JOIN_/, "").replace(/^ROOM_/, "");
+    if (!/^[A-Z0-9]{6}(?:_[AB])?$/.test(code)) return false;
+    ROOM_CODE = code;
+    teamParam = null;
+    cleanRoomCode = code;
+    const parts = code.split("_");
+    if (parts.length === 2) {
+        teamParam = parts[1];
+        cleanRoomCode = parts[0];
     }
+    localStorage.setItem("ludo_last_room_code", code);
+    console.info("[LUDO_ROOM_RESOLVED]", {
+        room: code,
+        source: window.__LUDO_SERVER_ROOM_CODE__ ? "server-path" : "telegram-start-param-or-url"
+    });
+    return true;
 }
 
-if (typeof ROOM_CODE !== 'undefined' && ROOM_CODE !== "") {
-    localStorage.setItem("ludo_last_room_code", ROOM_CODE);
-    connectWebSocket();
-} else {
-    console.error("Ludo room code is missing. Telegram start_param:", window.Telegram?.WebApp?.initDataUnsafe?.start_param);
-    const missingRoom = document.getElementById("room-title");
-    if (missingRoom) missingRoom.textContent = "Не удалось определить комнату. Вернитесь в группу и нажмите «Войти в игру» ещё раз.";
+function bootRoomConnection(attempt = 0) {
+    try { tg.ready && tg.ready(); } catch (e) {}
+    if (roomConnectionStarted) return;
+    const resolved = window.__LUDO_SERVER_ROOM_CODE__ ||
+        (typeof window.__resolveLudoRoomCode === "function" ? window.__resolveLudoRoomCode() : ROOM_CODE);
+    if (applyResolvedRoomCode(resolved)) {
+        roomConnectionStarted = true;
+        connectWebSocket();
+        return;
+    }
+    if (attempt < 24) {
+        setTimeout(() => bootRoomConnection(attempt + 1), 250);
+        return;
+    }
+    console.error("[LUDO_ROOM_MISSING]", {
+        path: window.location.pathname,
+        search: window.location.search,
+        startParam: tg?.initDataUnsafe?.start_param || "",
+        initDataPresent: Boolean(tg?.initData)
+    });
+    const title = document.getElementById("room-title");
+    if (title) title.textContent = "Не удалось получить код комнаты";
+    const waiting = document.querySelector(".lobby-title");
+    if (waiting) waiting.textContent = "Вернитесь в группу и откройте игру кнопкой «Войти в игру»";
+    showChatNotification("", "Telegram не передал код комнаты. Закройте игру и откройте её повторно из последнего сообщения бота.", null, 9000);
 }
+bootRoomConnection();
 
 let messageQueue = [];
 let isProcessingQueue = false;
@@ -611,10 +637,12 @@ async function handleMessage(data) {
             joinRequestPending = false;
             joinConfirmed = false;
             const title = document.getElementById("room-title");
-            if (title) title.textContent = "Комната не найдена";
+            if (title) title.textContent = "Комната " + (cleanRoomCode || "неизвестна");
             const waiting = document.querySelector(".lobby-title");
-            if (waiting) waiting.textContent = "Вернитесь в группу и откройте игру заново";
-            showChatNotification("", data.message || "Комната не найдена. Откройте игру кнопкой из группы.", null, 9000);
+            if (waiting) waiting.textContent = "Комната не найдена на сервере";
+            const slots = document.getElementById("lobby-slots");
+            if (slots) slots.innerHTML = '<div class="room-error-state">Комната больше не существует или сервер не восстановил её данные.</div>';
+            showChatNotification("", data.message || "Комната не найдена. Создайте новую игру в группе.", null, 9000);
         } else if (data.event === "STARTING") {
             const quickStart = document.getElementById("lobby-start-bots");
             if (quickStart) {
