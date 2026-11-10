@@ -2042,7 +2042,7 @@ function addMessageToUI(msg) {
 
     // Eger chat jabıq bolsa hám xabar basqa adamnan kelse, aqırǵı xabardı kórsetiw
     if (!isChatOpen && !isMe) {
-        showChatNotification(msg.name, msg.text, msg.color);
+        showChatNotification(msg.name, msg.audio_data ? tr("voice_note") : msg.text, msg.color);
         if (btn) btn.classList.add('has-unread');
     }
 }

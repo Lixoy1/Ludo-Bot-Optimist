@@ -1,0 +1,51 @@
+name: Server v5 validation
+
+on:
+  push:
+    branches: [release/v5-server-ready]
+  pull_request:
+    branches: [main]
+
+jobs:
+  validate-server-v5:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - uses: actions/setup-node@v4
+        with:
+          node-version: "22"
+      - name: Install Python dependencies
+        run: python -m pip install -r server-v5/requirements.txt
+      - name: Compile Python server
+        run: python -m py_compile server-v5/server.py
+      - name: Check browser JavaScript syntax
+        run: |
+          node --check server-v5/static/js/main.js
+          python - <<'PY'
+          from pathlib import Path
+          import re
+          html = Path("server-v5/cabinet.html").read_text(encoding="utf-8")
+          scripts = re.findall(r"<script>([\\s\\S]*?)</script>", html)
+          if not scripts:
+              raise SystemExit("cabinet inline script not found")
+          Path("/tmp/cabinet-inline.js").write_text("\\n".join(scripts), encoding="utf-8")
+          PY
+          node --check /tmp/cabinet-inline.js
+      - name: Smoke-test FastAPI routes
+        run: |
+          cd server-v5
+          APP_ENV=development DATABASE_PATH=/tmp/optimist-ludo-ci.db uvicorn server:app --host 127.0.0.1 --port 8765 >/tmp/optimist-ludo-uvicorn.log 2>&1 &
+          server_pid=$!
+          trap 'kill "$server_pid" 2>/dev/null || true' EXIT
+          for attempt in $(seq 1 30); do
+            if curl --silent --fail http://127.0.0.1:8765/healthz >/tmp/healthz.json; then break; fi
+            sleep 1
+          done
+          grep -q '"status":"ok"' /tmp/healthz.json
+          curl --silent --fail http://127.0.0.1:8765/ >/tmp/ludo-index.html
+          curl --silent --fail http://127.0.0.1:8765/cabinet >/tmp/ludo-cabinet.html
+          grep -q 'character-select-overlay' /tmp/ludo-index.html
+          grep -q 'id="skins"' /tmp/ludo-cabinet.html
