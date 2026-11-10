@@ -220,7 +220,7 @@ def render_tg_lobby_text(room):
             while len(lines) < 4:
                 lines.append(f"{len(lines)+1}. _Ожидание игрока..._")
             body = "\n".join(lines)
-        footer = "\n\n⏳ _Старт автоматически через 15 сек после входа 2-го игрока (или при 4/4)_"
+        footer = "\n\n🤖 _Можно играть одному: нажмите «Играть с ботами», и свободные места займут AI-соперники._\n⏳ _Если ждёте людей, игра стартует автоматически через 15 сек после входа 2-го игрока (или при 4/4)._
         return header + body + footer
     elif room["status"] == "PLAYING":
         plist = "\n".join([f"{COLOR_EMOJI[p['color']]} {p['name']}" for p in players])
