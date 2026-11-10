@@ -20,6 +20,19 @@ jobs:
           for n in names:
               if n.lower().endswith((".py",".js",".ts",".tsx",".json",".html")):
                   print(n)
+          print("\\n=== EXACT ORIGINAL SERVER SECTIONS ===")
+          for name, ranges in {
+              "server.py": [(195,265),(300,390),(455,630),(630,730)],
+              "index.html": [(1,50)],
+              "static/js/main.js": [(1,70),(250,430),(750,900)]
+          }.items():
+              text=z.read(name).decode("utf-8")
+              lines=text.splitlines()
+              print("\\n---",name,"---")
+              for a,b in ranges:
+                  print(f"\\n### lines {a}-{b}")
+                  for i in range(a-1,min(b,len(lines))):
+                      print(f"{i+1}: {lines[i]}")
           terms=re.compile(r"CommandStart|send_start_menu|startapp|ROOM_STATE|callback_query|START_GAME|JOIN_GAME|callback_data|InlineKeyboard|timer|lobby|start_game|join_game|web_app|WebAppInfo",re.I)
           shown=0
           print("\n=== MATCHED ORIGINAL BOT IMPLEMENTATION ===")
