@@ -78,6 +78,8 @@ jobs:
           curl --silent --fail http://127.0.0.1:8765/room/ABC123 >/tmp/ludo-room-path.html
           curl --silent --fail 'http://127.0.0.1:8765/?startapp=join_ABC123' >/tmp/ludo-room-query.html
           curl --silent --fail http://127.0.0.1:8765/cabinet >/tmp/ludo-cabinet.html
+          voice_status=$(curl --silent --output /tmp/voice-auth.json --write-out '%{http_code}' -X POST -H 'content-type: audio/webm' --data-binary '' http://127.0.0.1:8765/api/rooms/ABC123/voice)
+          test "$voice_status" = "401"
           grep -q 'character-select-overlay' /tmp/ludo-index.html
           grep -q 'window.__LUDO_SERVER_ROOM_CODE__ = "ABC123";' /tmp/ludo-room-path.html
           grep -q 'window.__LUDO_SERVER_ROOM_CODE__ = "ABC123";' /tmp/ludo-room-query.html
