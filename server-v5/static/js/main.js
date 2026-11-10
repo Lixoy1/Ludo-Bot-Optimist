@@ -2161,6 +2161,10 @@ async function toggleVoiceNoteRecording() {
         showChatNotification("", tr("no_server"), null, 4000);
         return;
     }
+    if (!voiceSessionToken) {
+        showChatNotification("", "Подключаем голосовой канал. Подожди секунду и попробуй снова.", null, 4000);
+        return;
+    }
     try {
         voiceNoteStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
         const preferred = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"];
