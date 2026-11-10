@@ -1483,7 +1483,6 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
 
                     if room["status"] == "WAITING":
                         ensure_lobby_timer(room)
-                        await sync_tg_message(room)
                         await broadcast(room, {
                             "event": "ROOM_STATE",
                             "status": "WAITING",
@@ -1493,6 +1492,8 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                             "lobby_deadline": room.get("lobby_deadline"),
                             "creator_user_id": room.get("creator_user_id")
                         })
+                        # Telegram group-message refresh must never hold up the player's join.
+                        asyncio.create_task(sync_tg_message(room))
                         if len(room["players"]) >= 4:
                             task = room.get("start_task")
                             if task and not task.done():
