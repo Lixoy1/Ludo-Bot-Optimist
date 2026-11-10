@@ -257,14 +257,27 @@ function renderCharacterOptions() {
     if (confirm) confirm.textContent = tr("confirm_character");
 }
 
+function syncBoardStyleToggle() {
+    const button = document.getElementById("board-style-live");
+    if (!button) return;
+    const classic = selectedBoardStyle === "classic";
+    button.textContent = classic ? "Оформление: Классика" : "Оформление: Неон";
+    button.setAttribute("aria-label", classic ? "Переключить на неоновое оформление" : "Переключить на классическое оформление");
+}
 function selectBoardStyle(id) {
     if (!["classic", "neon"].includes(id)) return;
     selectedBoardStyle = id;
     localStorage.setItem("ludo_board_style", id);
     applyBoardTheme(id);
     renderCharacterOptions();
+    syncBoardStyleToggle();
+}
+function toggleBoardStyle() {
+    selectBoardStyle(selectedBoardStyle === "classic" ? "neon" : "classic");
 }
 window.selectBoardStyle = selectBoardStyle;
+window.toggleBoardStyle = toggleBoardStyle;
+syncBoardStyleToggle();
 
 function selectLudoCharacter(id) {
     if (!LUDO_CHARACTERS.some(([key]) => key === id)) return;
