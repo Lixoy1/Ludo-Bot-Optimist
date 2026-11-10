@@ -802,14 +802,29 @@ async def next_turn(room):
 # ─── Telegram-бот ───
 bot = Bot(token=BOT_TOKEN) if BOT_TOKEN != BOT_TOKEN_PLACEHOLDER else None
 dp = Dispatcher()
+BOT_USERNAME = os.getenv("BOT_USERNAME", "Ludo_optimist_bot").lstrip("@").casefold()
+
+
+def command_targets_this_bot(message: types.Message) -> bool:
+    """Avoid reacting to group commands intended for another bot or nobody."""
+    text_value = str(message.text or "").strip()
+    token = text_value.split(maxsplit=1)[0] if text_value else ""
+    if "@" in token:
+        target = token.rsplit("@", 1)[1].casefold()
+        return target == BOT_USERNAME
+    return getattr(message.chat, "type", "private") == "private"
 
 @dp.message(CommandStart())
 async def cmd_start(message: types.Message):
+    if not command_targets_this_bot(message):
+        return
     await send_start_menu(message)
 
 
 @dp.message(Command("help"))
 async def cmd_help(message: types.Message):
+    if not command_targets_this_bot(message):
+        return
     help_text = (
         "🎲 **OPTIMIST LUDO — помощь**\\n\\n"
         "🎮 **Начать игру**\\n"
@@ -829,6 +844,8 @@ async def cmd_help(message: types.Message):
 
 @dp.message(Command("game", "play", "ludo"))
 async def cmd_game(message: types.Message):
+    if not command_targets_this_bot(message):
+        return
     await send_start_menu(message)
 
 
@@ -1039,7 +1056,11 @@ async def lifespan(app: FastAPI):
                 types.BotCommand(command="start", description="Открыть Optimist Ludo"),
                 types.BotCommand(command="game", description="Создать игру"),
                 types.BotCommand(command="help", description="Помощь и правила"),
-            ])
+            ], scope=types.BotCommandScopeAllPrivateChats())
+            await bot.set_my_commands([
+                types.BotCommand(command="game", description="Создать игру"),
+                types.BotCommand(command="help", description="Помощь и правила"),
+            ], scope=types.BotCommandScopeAllGroupChats())
         except Exception as exc:
             print(f"[BOT_COMMANDS] Не удалось обновить меню команд: {exc}")
     task = asyncio.create_task(dp.start_polling(bot)) if bot is not None else None
