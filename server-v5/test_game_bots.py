@@ -93,7 +93,9 @@ class BotRoomTests(unittest.TestCase):
                 patch.object(server.random, "randint", return_value=6),
                 patch.object(server, "arm_turn_timer", side_effect=lambda r: armed.append(r["code"])),
                 patch.object(server, "asyncio", SimpleNamespace(
-                    sleep=fast_sleep, current_task=asyncio.current_task
+                    sleep=fast_sleep,
+                    current_task=asyncio.current_task,
+                    wait_for=asyncio.wait_for
                 )),
             ):
                 await server.auto_roll_until_six(room, "green")
