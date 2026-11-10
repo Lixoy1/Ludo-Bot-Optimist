@@ -1,0 +1,25 @@
+services:
+  - type: web
+    name: optimist-ludo
+    runtime: docker
+    plan: starter
+    region: frankfurt
+    rootDir: server-v5
+    dockerfilePath: ./Dockerfile
+    healthCheckPath: /healthz
+    autoDeploy: true
+    disk:
+      name: ludo-data
+      mountPath: /data
+      sizeGB: 1
+    envVars:
+      - key: BOT_TOKEN
+        sync: false
+      - key: WEBAPP_URL
+        sync: false
+      - key: APP_ENV
+        value: production
+      - key: ALLOW_DEV_AUTH
+        value: "false"
+      - key: DATABASE_PATH
+        value: /data/ludo.db
