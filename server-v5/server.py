@@ -226,7 +226,7 @@ def render_tg_lobby_text(room):
     elif room["status"] == "PLAYING":
         active = next((p for p in players if p.get("color") == room.get("turn")), None)
         plist = "\n".join([
-            f"{'👉 ' if p is active else ''}{COLOR_EMOJI[p['color']]} {p['name']}{' — ХОДИТ' if p is active else ''}"
+            f"{'👉 ' if p is active else ''}{COLOR_EMOJI[p['color']]} {p['name']}{' (БОТ)' if p.get('is_bot') else ''}{' — ХОДИТ' if p is active else ''}"
             for p in players
         ])
         turn_line = f"\n\n🎲 **Сейчас ходит: {active['name']}**" if active else ""
@@ -773,7 +773,7 @@ async def cb_start_game(call: types.CallbackQuery):
     ]])
     await call.message.answer(
         f"🎮 Игра началась! ({MODE_NAMES.get(room['game_mode'], 'Optimist Ludo')})\n"
-        + "\n".join(f"{COLOR_EMOJI[p['color']]} {p['name']}" for p in room["players"]),
+        + "\n".join(f"{COLOR_EMOJI[p['color']]} {p['name']}{' (БОТ)' if p.get('is_bot') else ''}" for p in room["players"]),
         reply_markup=enter_kb
     )
 

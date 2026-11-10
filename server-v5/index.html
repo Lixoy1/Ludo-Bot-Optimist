@@ -11,12 +11,26 @@
     <link rel="stylesheet" href="/static/css/skins.css?v=1">
     <script>
         const ROOM_CODE = (() => {
-            const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param ||
-                new URLSearchParams(window.location.search).get("tgWebAppStartParam") || "";
-            const fromStart = String(startParam).startsWith("join_") ? String(startParam).slice(5).toUpperCase() : "";
+            const webApp = window.Telegram?.WebApp;
+            const query = new URLSearchParams(window.location.search);
+            const hash = new URLSearchParams(String(window.location.hash || "").replace(/^#/, ""));
+            const initData = new URLSearchParams(webApp?.initData || "");
+            const rawStart = String(
+                webApp?.initDataUnsafe?.start_param ||
+                initData.get("start_param") ||
+                query.get("tgWebAppStartParam") ||
+                query.get("startapp") ||
+                hash.get("tgWebAppStartParam") ||
+                ""
+            ).trim();
+            // Telegram clients may expose either "join_CODE" or just "CODE".
+            // Never discard a non-empty start parameter: that created a blank room.
+            const fromStart = rawStart.toLowerCase().startsWith("join_")
+                ? rawStart.slice(5)
+                : rawStart;
             const routeParts = window.location.pathname.split("/").filter(Boolean);
             const fromPath = routeParts[0] === "room" ? (routeParts[1] || "") : "";
-            return fromStart || fromPath.toUpperCase() || "";
+            return (fromStart || fromPath).toUpperCase().replace(/[^A-Z0-9_]/g, "");
         })();
         const LANG = (() => {
             const code = (window.Telegram?.WebApp?.initDataUnsafe?.user?.language_code || navigator.language || "ru").toLowerCase().split("-")[0];
@@ -424,7 +438,7 @@
     <script src="/static/js/sticker_sfx.js?v=1"></script>
     <script src="/static/js/themes.js?v=1"></script>
     <script src="/static/js/voice.js?v=5"></script>
-    <script src="/static/js/main.js?v=7525"></script>
+    <script src="/static/js/main.js?v=7526"></script>
 
 
 </body></html>

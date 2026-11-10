@@ -379,6 +379,10 @@ if (typeof ROOM_CODE !== 'undefined' && ROOM_CODE.includes("_")) {
 
 if (typeof ROOM_CODE !== 'undefined' && ROOM_CODE !== "") {
     connectWebSocket();
+} else {
+    console.error("Ludo room code is missing. Telegram start_param:", window.Telegram?.WebApp?.initDataUnsafe?.start_param);
+    const missingRoom = document.getElementById("room-title");
+    if (missingRoom) missingRoom.textContent = "Не удалось определить комнату. Вернитесь в группу и нажмите «Войти в игру» ещё раз.";
 }
 
 let messageQueue = [];
@@ -615,8 +619,10 @@ async function handleMessage(data) {
             if ((data.players || []).some(p => String(p.user_id) === String(userId))) {
                 joinedThisRoom = true;
                 joinRequestPending = false;
+                // Keep the character picker open until the player explicitly confirms.
+                // Group registration already reserved the seat; JOIN_GAME updates its skin.
                 const picker = document.getElementById("character-select-overlay");
-                if (picker) picker.hidden = true;
+                if (picker && joinConfirmed) picker.hidden = true;
             }
             setTurnSeconds(data.game_mode);
             updateRoomUI(data);
