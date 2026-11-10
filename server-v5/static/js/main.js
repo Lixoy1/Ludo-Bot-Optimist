@@ -223,6 +223,7 @@ const LUDO_CHARACTERS = [
 ];
 let selectedCharacterId = localStorage.getItem("ludo_match_character") || "optimist";
 if (!LUDO_CHARACTERS.some(([id]) => id === selectedCharacterId)) selectedCharacterId = "optimist";
+let selectedBoardStyle = localStorage.getItem("ludo_board_style") === "classic" ? "classic" : "neon";
 let joinConfirmed = false;
 let joinRequestPending = false;
 let joinRequestTimeout = null;
@@ -245,10 +246,25 @@ function renderCharacterOptions() {
     const title = document.getElementById("character-select-title");
     const note = document.getElementById("character-select-note");
     const confirm = document.getElementById("character-confirm-btn");
+    const themeChoice = document.getElementById("board-style-options");
+    if (themeChoice) themeChoice.querySelectorAll("[data-board-style]").forEach(button => {
+        const active = button.dataset.boardStyle === selectedBoardStyle;
+        button.classList.toggle("selected", active);
+        button.setAttribute("aria-pressed", active ? "true" : "false");
+    });
     if (title) title.textContent = tr("choose_character");
     if (note) note.textContent = tr("choose_character_note");
     if (confirm) confirm.textContent = tr("confirm_character");
 }
+
+function selectBoardStyle(id) {
+    if (!["classic", "neon"].includes(id)) return;
+    selectedBoardStyle = id;
+    localStorage.setItem("ludo_board_style", id);
+    applyBoardTheme(id);
+    renderCharacterOptions();
+}
+window.selectBoardStyle = selectBoardStyle;
 
 function selectLudoCharacter(id) {
     if (!LUDO_CHARACTERS.some(([key]) => key === id)) return;
@@ -1170,7 +1186,7 @@ function initBoardUI(data) {
 // SVG hám temalar — themes.js (BoardThemes). Grid kletkaları onıń ústinde mólder
 // turadı — tek taslardıń tayanısh noqatı. ⚜️ VIP teması: server JOIN_GAME'ge juwap
 // retinde BOARD_THEME jiberedi (VIP — óz teması; bolmasa VIP jaratqan bólmeniń teması).
-let boardTheme = "neon";
+let boardTheme = selectedBoardStyle;
 let boardArtCache = null;
 
 function buildBoardArt() {
@@ -1179,6 +1195,8 @@ function buildBoardArt() {
 }
 
 function applyBoardTheme(id) {
+    id = localStorage.getItem("ludo_board_style") === "classic" ? "classic" : "neon";
+    selectedBoardStyle = id;
     if (!BoardThemes.has(id)) id = "classic";
     const board = document.getElementById("ludo-board");
     if (board) {
@@ -1201,7 +1219,8 @@ function drawBoard(roomData) {
     grid.className = "board-grid-inner";
     const safeTrackIndexes = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
     const mainTrackMap = new Map(MAIN_PATH.map((coord, index) => [coord.join(","), index]));
-    const homeTrackCells = new Set(Object.values(HOME_PATHS).flat().map(coord => coord.join(",")));
+    const homeTrackColors = new Map();
+    Object.entries(HOME_PATHS).forEach(([color, coords]) => coords.forEach(coord => homeTrackColors.set(coord.join(","), color)));
 
     for(let r=0; r<15; r++) {
         for(let c=0; c<15; c++) {
@@ -1213,8 +1232,8 @@ function drawBoard(roomData) {
             if (mainTrackMap.has(coordKey)) {
                 cell.classList.add("track-cell");
                 if (safeTrackIndexes.has(mainTrackMap.get(coordKey))) cell.classList.add("safe-cell");
-            } else if (homeTrackCells.has(coordKey)) {
-                cell.classList.add("track-cell", "home-cell");
+            } else if (homeTrackColors.has(coordKey)) {
+                cell.classList.add("track-cell", "home-cell", "home-" + homeTrackColors.get(coordKey));
             }
 
             let baseColor = null;
