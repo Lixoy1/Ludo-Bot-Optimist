@@ -80,9 +80,12 @@
             font: inherit; font-size: 12px; font-weight: 700; color: var(--text-3); background: none; border: 0; cursor: pointer;
         }
         .tab.active { color: var(--text); }
+        #cabinet-status { margin: 0 4px 14px; color: var(--text-2); font-size: 12px; line-height: 1.4; }
+        #cabinet-status.error { color: #ffb4b4; }
     </style>
 </head>
 <body>
+    <div id="cabinet-status" role="status" aria-live="polite">Загружаем профиль…</div>
     <section class="page" id="page-profile">
         <div class="profile">
             <div class="avatar" id="avatar">O</div>
@@ -161,9 +164,19 @@
 
         let prefs = { skin: "optimist", board_theme: "neon", fav_color: null };
 
+        function setCabinetStatus(message, isError = false) {
+            const el = document.getElementById('cabinet-status');
+            if (!el) return;
+            el.textContent = message || '';
+            el.classList.toggle('error', !!isError);
+        }
+
         async function loadAll() {
-            const r = await fetch(`/api/me?init_data=${encodeURIComponent(tg.initData || '')}&user_id=${encodeURIComponent(userId)}&name=${encodeURIComponent(userName)}`);
-            if (r.ok) {
+            renderAll();
+            try {
+                if (!tg.initData) throw new Error('no_telegram_init_data');
+                const r = await fetch(`/api/me?init_data=${encodeURIComponent(tg.initData)}`, { cache: 'no-store' });
+                if (!r.ok) throw new Error(`profile_http_${r.status}`);
                 const d = await r.json();
                 document.getElementById('name').textContent = d.name;
                 document.getElementById('rating').textContent = d.rating;
@@ -176,18 +189,36 @@
                 else av.textContent = d.name.charAt(0).toUpperCase();
                 prefs = d.prefs || prefs;
                 renderAll();
+                setCabinetStatus('Настройки загружены. Изменения сохраняются автоматически.');
+            } catch (error) {
+                renderAll();
+                setCabinetStatus(!tg.initData
+                    ? 'Откройте профиль через кнопку «Персонажи» в личном чате бота Telegram.'
+                    : 'Не удалось загрузить профиль. Перезапустите мини-приложение и попробуйте ещё раз.', true);
+                console.warn('Cabinet profile load failed:', error);
             }
         }
 
         async function savePrefs(patch) {
+            const previous = { ...prefs };
             prefs = { ...prefs, ...patch };
             renderAll();
-            await fetch('/api/prefs', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                body: JSON.stringify({ init_data: tg.initData || '', user_id: userId, ...patch })
-            });
-            try { tg.HapticFeedback.selectionChanged(); } catch (e) {}
+            try {
+                if (!tg.initData) throw new Error('no_telegram_init_data');
+                const r = await fetch('/api/prefs', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ init_data: tg.initData, ...patch })
+                });
+                if (!r.ok) throw new Error(`save_http_${r.status}`);
+                setCabinetStatus('Сохранено.');
+                try { tg.HapticFeedback.selectionChanged(); } catch (e) {}
+            } catch (error) {
+                prefs = previous;
+                renderAll();
+                setCabinetStatus('Не удалось сохранить. Откройте профиль через кнопку бота в Telegram.', true);
+                console.warn('Cabinet preference save failed:', error);
+            }
         }
 
         function renderAll() {

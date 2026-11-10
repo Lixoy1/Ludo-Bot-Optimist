@@ -54,6 +54,7 @@ const I18N = {
         menu: "Menu", leave_game: "Leave game", sound: "Sound", vibration: "Vibration", on: "On", off: "Off",
         leave_confirm: "Leave the game?",
         waiting_players: "Waiting for players", you: "You", close: "Close",
+        choose_character: "Choose your character", choose_character_note: "Pick the character you will use in this match.", confirm_character: "Choose and join", voice_note: "Voice message", recording: "Recording… tap to send",
     },
     ru: {
         welcome: "Добро пожаловать в Ludo King", create_game: "Создать игру",
@@ -67,6 +68,7 @@ const I18N = {
         menu: "Меню", leave_game: "Выйти из игры", sound: "Звук", vibration: "Вибрация", on: "Вкл", off: "Выкл",
         leave_confirm: "Выйти из игры?",
         waiting_players: "Ожидание игроков", you: "Вы", close: "Закрыть",
+        choose_character: "Выберите персонажа", choose_character_note: "Выберите героя, которым будете играть в этом матче.", confirm_character: "Выбрать и войти", voice_note: "Голосовое сообщение", recording: "Идёт запись… нажмите, чтобы отправить",
     },
     kaa: {
         welcome: "Ludo King-ke xosh keldińiz", create_game: "Oyın jaratıw",
@@ -180,6 +182,77 @@ if (tg.initDataUnsafe && tg.initDataUnsafe.user) {
         localStorage.setItem("ludo_user_id", userId);
     }
     userName = localStorage.getItem("ludo_user_name") || "Oyınshı_" + Math.floor(Math.random() * 100);
+}
+
+const LUDO_CHARACTERS = [
+    ["optimist", "Оптимист"], ["elvina", "Эльвина"], ["nikita", "Никита"],
+    ["lilya-detective", "Лиля-детектив"], ["natalie", "Натали"], ["ksyusha", "Ксюша"],
+    ["lena", "Лена"], ["poison", "Poison"], ["cat", "Кот"], ["husky", "Хаски"],
+    ["owl", "Сова"], ["raccoon", "Енот"]
+];
+let selectedCharacterId = localStorage.getItem("ludo_match_character") || "optimist";
+if (!LUDO_CHARACTERS.some(([id]) => id === selectedCharacterId)) selectedCharacterId = "optimist";
+let joinConfirmed = false;
+let joinRequestPending = false;
+let joinedThisRoom = false;
+let characterPrefsLoaded = false;
+
+function renderCharacterOptions() {
+    const host = document.getElementById("character-options");
+    if (!host) return;
+    host.innerHTML = LUDO_CHARACTERS.map(([id, label]) => `
+        <button type="button" class="character-option ${selectedCharacterId === id ? "selected" : ""}"
+                data-character="${id}" onclick="selectLudoCharacter('${id}')">
+            <img src="/static/img/characters/${id}.webp" alt="" loading="lazy"><span>${label}</span>
+        </button>`).join("");
+    const title = document.getElementById("character-select-title");
+    const note = document.getElementById("character-select-note");
+    const confirm = document.getElementById("character-confirm-btn");
+    if (title) title.textContent = tr("choose_character");
+    if (note) note.textContent = tr("choose_character_note");
+    if (confirm) confirm.textContent = tr("confirm_character");
+}
+
+function selectLudoCharacter(id) {
+    if (!LUDO_CHARACTERS.some(([key]) => key === id)) return;
+    selectedCharacterId = id;
+    renderCharacterOptions();
+}
+
+async function showCharacterSelection() {
+    const overlay = document.getElementById("character-select-overlay");
+    if (!overlay) { joinConfirmed = true; autoJoinGame(); return; }
+    const status = document.getElementById("character-select-error");
+    if (status) status.textContent = "";
+    if (!characterPrefsLoaded && tg.initData) {
+        try {
+            const response = await fetch(`/api/me?init_data=${encodeURIComponent(tg.initData)}`, { cache: "no-store" });
+            if (response.ok) {
+                const profile = await response.json();
+                const skin = profile.prefs && profile.prefs.skin;
+                if (LUDO_CHARACTERS.some(([id]) => id === skin)) selectedCharacterId = skin;
+            }
+        } catch (error) {
+            console.warn("Could not load saved character:", error);
+        }
+        characterPrefsLoaded = true;
+    }
+    renderCharacterOptions();
+    overlay.hidden = false;
+}
+
+function confirmCharacterChoice() {
+    if (!tg.initData) {
+        const status = document.getElementById("character-select-error");
+        if (status) status.textContent = "Откройте игру через кнопку Telegram-бота, чтобы подтвердить аккаунт.";
+        return;
+    }
+    localStorage.setItem("ludo_match_character", selectedCharacterId);
+    joinConfirmed = true;
+    const overlay = document.getElementById("character-select-overlay");
+    if (overlay) overlay.hidden = true;
+    joinRequestPending = false;
+    autoJoinGame();
 }
 
 async function createGame() {
@@ -370,6 +443,7 @@ function connectWebSocket() {
     ws.onclose = function(event) {
         console.log("WS Closed:", event);
         stopHeartbeat();
+        joinRequestPending = false;
         if (event.code === 4403) {
             console.warn("WS: Telegram authentication rejected; automatic reconnect disabled.");
             return;
@@ -525,6 +599,7 @@ async function handleMessage(data) {
     }
 
         if (data.event === "AUTH_ERROR") {
+            joinRequestPending = false;
             showChatNotification('', data.message || "Требуется открыть игру через Telegram", null, 7000);
         } else if (data.event === "GAME_ERROR") {
             showChatNotification('', data.message || tr("error"), null, 4500);
@@ -537,6 +612,12 @@ async function handleMessage(data) {
             autoJoinGame();
         } else if (data.event === "ROOM_STATE") {
             latestRoomState = data;
+            if ((data.players || []).some(p => String(p.user_id) === String(userId))) {
+                joinedThisRoom = true;
+                joinRequestPending = false;
+                const picker = document.getElementById("character-select-overlay");
+                if (picker) picker.hidden = true;
+            }
             setTurnSeconds(data.game_mode);
             updateRoomUI(data);
             // Keep the lobby visible while the room is waiting; the old markup
@@ -582,6 +663,10 @@ async function handleMessage(data) {
             addMessageToUI({ system: true, text: tr("chat_vip_only") });
         } else if (data.event === "GAME_STARTED") {
             latestRoomState = data;
+            joinedThisRoom = (data.players || []).some(p => String(p.user_id) === String(userId));
+            joinRequestPending = false;
+            const picker = document.getElementById("character-select-overlay");
+            if (picker) picker.hidden = true;
             setTurnSeconds(data.game_mode);
             document.getElementById("game-info").style.display = "none";
             document.getElementById("board-container").style.display = "block";
@@ -630,7 +715,7 @@ async function handleMessage(data) {
             Voice.stop();
             closePlayerPop();
             showGameOver(data.players, data.rating_changes);
-        } else if (data.event === "NEW_MESSAGE") {
+        } else if (data.event === "NEW_MESSAGE" || data.event === "NEW_VOICE_MESSAGE") {
             addMessageToUI(data.message);
         } else if (data.event === "ANIMATION_SENT") {
             playAnimation(data.from_color, data.to_color, data.animation);
@@ -645,16 +730,22 @@ async function handleMessage(data) {
 }
 
 function autoJoinGame() {
-    if (ws) {
-        ws.send(JSON.stringify({
-            action: "JOIN_GAME",
-            init_data: tg.initData,
-            user_id: userId,
-            name: userName,
-            photo_url: userPhotoUrl,
-            team: teamParam
-        }));
+    if (!ws || ws.readyState !== WebSocket.OPEN) return;
+    if (!joinConfirmed) {
+        showCharacterSelection();
+        return;
     }
+    if (joinRequestPending) return;
+    joinRequestPending = true;
+    ws.send(JSON.stringify({
+        action: "JOIN_GAME",
+        init_data: tg.initData,
+        user_id: userId,
+        name: userName,
+        photo_url: userPhotoUrl,
+        team: teamParam,
+        skin: selectedCharacterId
+    }));
 }
 
 function formatName(name) {
@@ -1807,6 +1898,98 @@ function sendMessage() {
 
 
 
+let voiceNoteRecorder = null;
+let voiceNoteStream = null;
+let voiceNoteChunks = [];
+let voiceNoteStartedAt = 0;
+let voiceNoteMaxTimer = null;
+
+async function toggleVoiceNoteRecording() {
+    const button = document.getElementById("voice-note-btn");
+    if (voiceNoteRecorder && voiceNoteRecorder.state === "recording") {
+        voiceNoteRecorder.stop();
+        return;
+    }
+    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === "undefined") {
+        showChatNotification("", "Запись аудио не поддерживается этим браузером Telegram.", null, 6000);
+        return;
+    }
+    if (!ws || ws.readyState !== WebSocket.OPEN) {
+        showChatNotification("", tr("no_server"), null, 4000);
+        return;
+    }
+    try {
+        voiceNoteStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+        const preferred = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"];
+        const mimeType = preferred.find(type => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(type));
+        voiceNoteRecorder = mimeType ? new MediaRecorder(voiceNoteStream, { mimeType }) : new MediaRecorder(voiceNoteStream);
+        voiceNoteChunks = [];
+        voiceNoteStartedAt = Date.now();
+        voiceNoteRecorder.ondataavailable = event => {
+            if (event.data && event.data.size) voiceNoteChunks.push(event.data);
+        };
+        voiceNoteRecorder.onerror = event => {
+            console.warn("Voice note recorder error:", event.error || event);
+            showChatNotification("", "Не удалось записать голосовое сообщение.", null, 5000);
+        };
+        voiceNoteRecorder.onstop = async () => {
+            if (voiceNoteMaxTimer) clearTimeout(voiceNoteMaxTimer);
+            voiceNoteMaxTimer = null;
+            const recorder = voiceNoteRecorder;
+            voiceNoteRecorder = null;
+            if (voiceNoteStream) voiceNoteStream.getTracks().forEach(track => track.stop());
+            voiceNoteStream = null;
+            if (button) {
+                button.classList.remove("is-recording");
+                button.textContent = "🎙️";
+                button.title = "Записать голосовое сообщение";
+            }
+            const duration = Math.min(30000, Date.now() - voiceNoteStartedAt);
+            const blob = new Blob(voiceNoteChunks, { type: (recorder && recorder.mimeType) || (voiceNoteChunks[0] && voiceNoteChunks[0].type) || "audio/webm" });
+            voiceNoteChunks = [];
+            if (blob.size < 1200) {
+                showChatNotification("", "Запись слишком короткая.", null, 3500);
+                return;
+            }
+            if (blob.size > 675000) {
+                showChatNotification("", "Запись слишком большая. Запишите сообщение короче.", null, 5000);
+                return;
+            }
+            const reader = new FileReader();
+            reader.onload = () => {
+                const encoded = String(reader.result || "").split(",")[1] || "";
+                const mime = (blob.type || "audio/webm").split(";")[0].toLowerCase();
+                if (!encoded || !ws || ws.readyState !== WebSocket.OPEN) {
+                    showChatNotification("", "Соединение потеряно. Голосовое сообщение не отправлено.", null, 5000);
+                    return;
+                }
+                ws.send(JSON.stringify({ action: "SEND_VOICE_MESSAGE", audio_data: encoded, mime_type: mime, duration_ms: duration }));
+            };
+            reader.onerror = () => showChatNotification("", "Не удалось подготовить аудиозапись.", null, 4500);
+            reader.readAsDataURL(blob);
+        };
+        voiceNoteRecorder.start(250);
+        if (button) {
+            button.classList.add("is-recording");
+            button.textContent = "■";
+            button.title = tr("recording");
+        }
+        showChatNotification("", tr("recording"), null, 32000);
+        voiceNoteMaxTimer = setTimeout(() => {
+            if (voiceNoteRecorder && voiceNoteRecorder.state === "recording") voiceNoteRecorder.stop();
+        }, 30000);
+    } catch (error) {
+        if (voiceNoteStream) voiceNoteStream.getTracks().forEach(track => track.stop());
+        voiceNoteStream = null;
+        if (button) button.classList.remove("is-recording");
+        const message = error && error.name === "NotAllowedError"
+            ? "Разрешите Telegram доступ к микрофону в настройках телефона."
+            : "Не удалось включить запись. Проверьте доступ к микрофону.";
+        showChatNotification("", message, null, 6000);
+        console.warn("Voice note start failed:", error);
+    }
+}
+
 function handleChatKey(event) {
     if (event.key === 'Enter') sendMessage();
 }
@@ -1840,13 +2023,20 @@ function addMessageToUI(msg) {
     }
 
     msgDiv.className = `chat-msg ${isMe ? 'my-msg' : 'other-msg'}`;
-    
-    // Bubble ishinde tekstlerdi turaqlastırıw
-    msgDiv.innerHTML = `
-        ${isMe ? '' : `<small style="color: ${displayColor};">${escapeHtml(msg.name)}</small>`}
-        <span>${escapeHtml(msg.text)}</span>
-    `;
-    
+    const author = isMe ? '' : `<small style="color: ${displayColor};">${escapeHtml(msg.name)}</small>`;
+    if (msg.audio_data) {
+        const mime = ["audio/webm", "audio/ogg", "audio/mp4"].includes(msg.mime_type) ? msg.mime_type : "audio/webm";
+        msgDiv.innerHTML = `${author}<div class="voice-message-caption">🎙️ ${tr("voice_note")}</div>`;
+        const player = document.createElement("audio");
+        player.className = "voice-message-audio";
+        player.controls = true;
+        player.preload = "none";
+        player.src = `data:${mime};base64,${msg.audio_data}`;
+        msgDiv.appendChild(player);
+    } else {
+        msgDiv.innerHTML = `${author}<span>${escapeHtml(msg.text)}</span>`;
+    }
+
     container.appendChild(msgDiv);
     container.scrollTop = container.scrollHeight;
 

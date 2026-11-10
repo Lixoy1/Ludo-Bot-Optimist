@@ -16,6 +16,7 @@ BOT_TOKEN_PLACEHOLDER = "ВСТАВЬ_СЮДА_ТОКЕН_БОТА"
 
 COLORS = ["green", "yellow", "blue", "red"]
 COLOR_EMOJI = {"green": "🟢", "yellow": "🟡", "blue": "🔵", "red": "🔴"}
+CHARACTER_IDS = {"optimist", "elvina", "nikita", "lilya-detective", "natalie", "ksyusha", "lena", "poison", "cat", "husky", "owl", "raccoon"}
 MODE_NAMES = {
     "STANDARD": "🎲 Стандарт",
     "TEAM": "🤝 Команда 2×2",
@@ -239,13 +240,13 @@ def render_tg_lobby_kb(room):
                 InlineKeyboardButton(text="🔴🟡 Команда A", url=f"https://t.me/Ludo_optimist_bot?start=join_{code}_A"),
                 InlineKeyboardButton(text="🟢🔵 Команда B", url=f"https://t.me/Ludo_optimist_bot?start=join_{code}_B")
             ],
-            [InlineKeyboardButton(text="🎭 Мои персонажи", url=f"{WEBAPP_URL}/cabinet")]
+            [InlineKeyboardButton(text="🎭 Мои персонажи", url=f"https://t.me/Ludo_optimist_bot?start=cabinet")]
         ]
     else:
         btn_text = "🎲 Присоединиться к игре" if room["status"] == "WAITING" else "🔄 Вернуться / Смотреть"
         rows = [
             [InlineKeyboardButton(text=btn_text, url=f"https://t.me/Ludo_optimist_bot?start=join_{code}")],
-            [InlineKeyboardButton(text="🎭 Персонажи и настройки", url=f"{WEBAPP_URL}/cabinet")]
+            [InlineKeyboardButton(text="🎭 Персонажи и настройки", url=f"https://t.me/Ludo_optimist_bot?start=cabinet")]
         ]
     if room["status"] == "WAITING" and len(room.get("players", [])) >= 2:
         rows.insert(1, [InlineKeyboardButton(text="▶️ Начать игру", callback_data=f"start_{code}")])
@@ -361,6 +362,12 @@ async def cmd_game(message: types.Message):
     # signed WebApp initData only when the WebApp is launched from this button.
     parts = (message.text or "").split(maxsplit=1)
     payload = parts[1].strip() if len(parts) > 1 else ""
+    if payload == "cabinet":
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="🎭 Открыть профиль и персонажей", web_app=WebAppInfo(url=f"{WEBAPP_URL}/cabinet"))
+        ]])
+        await message.answer("Профиль Optimist Ludo — выберите персонажа, любимый цвет и тему доски.", reply_markup=kb)
+        return
     if payload.startswith("join_"):
         room_path = payload[5:].upper()
         code = room_path.split("_", 1)[0]
@@ -391,7 +398,7 @@ async def cmd_game(message: types.Message):
             InlineKeyboardButton(text="⚡ Быстрая (2 фишки)", callback_data="new_QUICK"),
             InlineKeyboardButton(text="🔥 Блиц (15 сек)", callback_data="new_BLITZ")
         ],
-        [InlineKeyboardButton(text="🎭 Мои персонажи и доски", url=f"{WEBAPP_URL}/cabinet")]
+        [InlineKeyboardButton(text="🎭 Мои персонажи и доски", url=f"https://t.me/Ludo_optimist_bot?start=cabinet")]
     ])
     await message.answer(
         "🎲 **Optimist Ludo**\nВыберите режим игры для этого чата:",
@@ -610,6 +617,12 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                 photo_url = identity["photo_url"]
                 team = data.get("team")
                 u = await get_user(uid, name, photo_url)
+                requested_skin = str(data.get("skin", "") or "").strip().lower()
+                if requested_skin in CHARACTER_IDS:
+                    async with DB_LOCK:
+                        db.execute("UPDATE users SET skin=? WHERE user_id=?", (requested_skin, uid))
+                        db.commit()
+                    u["skin"] = requested_skin
                 
                 async with ROOM_LOCKS[room["code"]]:
                     room["sockets"][uid] = websocket
@@ -886,6 +899,29 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                         "event": "NEW_MESSAGE",
                         "message": {"user_id": uid, "name": me["name"], "color": me["color"], "text": str(data.get("text", ""))[:200]}
                     })
+
+            elif act == "SEND_VOICE_MESSAGE":
+                me = next((p for p in room["players"] if p["user_id"] == uid), None)
+                if not me:
+                    continue
+                encoded = str(data.get("audio_data", "") or "")
+                mime_type = str(data.get("mime_type", "audio/webm") or "audio/webm").lower().split(";")[0]
+                if mime_type not in {"audio/webm", "audio/ogg", "audio/mp4"} or not encoded or len(encoded) > 900000:
+                    continue
+                try:
+                    audio_bytes = base64.b64decode(encoded, validate=True)
+                except Exception:
+                    continue
+                if not audio_bytes or len(audio_bytes) > 675000:
+                    continue
+                await broadcast(room, {
+                    "event": "NEW_VOICE_MESSAGE",
+                    "message": {
+                        "user_id": uid, "name": me["name"], "color": me["color"],
+                        "mime_type": mime_type, "audio_data": encoded,
+                        "duration_ms": max(0, min(30000, int(data.get("duration_ms", 0) or 0)))
+                    }
+                })
 
             elif act == "SEND_ANIMATION":
                 if not any(p["user_id"] == uid for p in room["players"]):
