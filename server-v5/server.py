@@ -587,23 +587,28 @@ async def apply_bot_move(room, bot, piece_index):
         "move_info": {"color": color, "piece_id": piece_index, "from": old_pos, "to": new_pos, "is_bot": True}
     })
 
-    if all(pos == 56 for pos in room["board_state"][color]):
-        bot["finished"] = True
-        finished_count = sum(1 for p in room["players"] if p.get("rank"))
-        bot["rank"] = finished_count + 1
+    just_finished = all(pos == 56 for pos in room["board_state"][color]) and not bot.get("finished")
+    if just_finished:
+        assign_finish_rank(room, bot)
         if room["game_mode"] == "TEAM":
-            team_done = all(p.get("finished") for p in room["players"] if p.get("team") == bot.get("team"))
+            team_done = all(p.get("finished") or p.get("left") for p in room["players"] if p.get("team") == bot.get("team"))
             if team_done:
                 room["status"] = "FINISHED"
                 room["actor_task"] = None
-                await broadcast(room, {"event": "GAME_OVER", "players": room["players"], "rating_changes": {}})
+                rating_changes = await record_match_results(room)
+                await broadcast(room, {"event": "GAME_OVER", "players": room["players"], "rating_changes": rating_changes})
                 await sync_tg_message(room)
                 return
-        elif finished_count + 1 >= len(room["players"]) - 1:
+        elif standard_match_complete(room):
             room["status"] = "FINISHED"
             room["actor_task"] = None
-            await broadcast(room, {"event": "GAME_OVER", "players": room["players"], "rating_changes": {}})
+            rating_changes = await record_match_results(room)
+            await broadcast(room, {"event": "GAME_OVER", "players": room["players"], "rating_changes": rating_changes})
             await sync_tg_message(room)
+            return
+        elif room["game_mode"] != "TEAM":
+            room["actor_task"] = None
+            await next_turn(room)
             return
 
     if value == 6 or new_pos == 56 or captured_any:
@@ -689,6 +694,7 @@ async def begin_match(room):
     await broadcast(room, {
         "event": "GAME_STARTED", "status": "PLAYING", "game_mode": room["game_mode"],
         "board_state": room["board_state"], "players": room["players"],
+        "spectators": list(room.get("spectators", {}).values()),
         "turn": room["turn"], "active_user_id": active_p["user_id"],
         "dice": room.get("dice"), "timer": t_sec
     })
@@ -769,17 +775,26 @@ async def next_turn(room):
     room["turn_gen"] = room.get("turn_gen", 0) + 1
     room["dice"] = None
     room["consecutive_sixes"] = 0
-    active_colors = [p["color"] for p in room["players"] if not p.get("finished") and not p.get("left")]
-    if not active_colors:
+    current_index = COLORS.index(room["turn"]) if room.get("turn") in COLORS else -1
+    active_p = None
+    for offset in range(1, len(COLORS) + 1):
+        candidate_color = COLORS[(current_index + offset) % len(COLORS)]
+        candidate = next((
+            p for p in room["players"]
+            if p["color"] == candidate_color and not p.get("finished") and not p.get("left")
+        ), None)
+        if candidate:
+            active_p = candidate
+            break
+    if not active_p:
         return
-    idx = (active_colors.index(room["turn"]) + 1) % len(active_colors) if room["turn"] in active_colors else 0
-    room["turn"] = active_colors[idx]
-    active_p = next((p for p in room["players"] if p["color"] == room["turn"]), room["players"][0])
+    room["turn"] = active_p["color"]
     t_sec = 15 if room["game_mode"] == "BLITZ" else 30
     await save_room_db(room)
     await broadcast(room, {
         "event": "TURN_CHANGED", "active_color": room["turn"], "active_user_id": active_p["user_id"],
-        "board_state": room["board_state"], "players": room["players"], "timer": t_sec
+        "board_state": room["board_state"], "players": room["players"],
+        "spectators": list(room.get("spectators", {}).values()), "timer": t_sec
     })
     await sync_tg_message(room)
     await schedule_turn_actor(room)
