@@ -1076,13 +1076,16 @@ def _voice_session(request: Request, room_code: str):
     room = ROOMS.get(room_code) or restore_room_from_db(room_code)
     if not room:
         raise HTTPException(status_code=404, detail="Игровая комната не найдена.")
-    player = next((
+    user_id = str(session["user_id"])
+    if user_id not in room.get("sockets", {}):
+        raise HTTPException(status_code=403, detail="Голосовой доступ доступен только подключённым к комнате.")
+    member = next((
         p for p in room.get("players", [])
-        if str(p.get("user_id")) == str(session["user_id"]) and not p.get("left")
-    ), None)
-    if not player:
-        raise HTTPException(status_code=403, detail="Только участники партии могут отправлять голосовые.")
-    return session, room, player
+        if str(p.get("user_id")) == user_id and not p.get("left")
+    ), None) or room.get("spectators", {}).get(user_id)
+    if not member:
+        raise HTTPException(status_code=403, detail="Не удалось определить участника комнаты.")
+    return session, room, member
 
 
 def _prune_voice_files():
@@ -1367,6 +1370,7 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                     u["skin"] = requested_skin
                 
                 async with ROOM_LOCKS[room["code"]]:
+                    room.setdefault("spectators", {})
                     room["sockets"][uid] = websocket
 
                     # Бесплатно разрешаем чат, темы и 4 набора стикеров всем
@@ -1413,6 +1417,15 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                         elif room["game_mode"] == "BLITZ":
                             room["board_state"][color] = [0, -1, -1, -1]
 
+                    seated_now = next((p for p in room["players"] if str(p.get("user_id")) == str(uid)), None)
+                    if seated_now:
+                        room["spectators"].pop(uid, None)
+                    else:
+                        room["spectators"][uid] = {
+                            "user_id": uid, "name": u["name"], "photo_url": u["photo_url"],
+                            "vip": True, "is_spectator": True
+                        }
+
                     if room["status"] == "WAITING":
                         ensure_lobby_timer(room)
                         await sync_tg_message(room)
@@ -1421,6 +1434,7 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                             "status": "WAITING",
                             "game_mode": room["game_mode"],
                             "players": room["players"],
+                            "spectators": list(room.get("spectators", {}).values()),
                             "lobby_deadline": room.get("lobby_deadline"),
                             "creator_user_id": room.get("creator_user_id")
                         })
@@ -1438,6 +1452,7 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                             "game_mode": room["game_mode"],
                             "board_state": room["board_state"],
                             "players": room["players"],
+                            "spectators": list(room.get("spectators", {}).values()),
                             "turn": room["turn"],
                             "active_user_id": active_p["user_id"],
                             "dice": room.get("dice"),
@@ -1449,6 +1464,11 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                     voice_session_token = secrets.token_hex(32)
                     VOICE_SESSIONS[voice_session_token] = {"user_id": uid, "room_code": room["code"]}
                     await websocket.send_json({"event": "VOICE_SESSION", "token": voice_session_token})
+                    await broadcast(room, {
+                        "event": "ROOM_MEMBERS",
+                        "players": room["players"],
+                        "spectators": list(room.get("spectators", {}).values())
+                    })
 
             elif act in ("START_GAME", "START_WITH_BOTS"):
                 ok, message = await start_waiting_room(
@@ -1664,11 +1684,19 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                         await next_turn(room)
 
             elif act == "SEND_MESSAGE":
-                me = next((p for p in room["players"] if p["user_id"] == uid), None)
-                if me:
+                if not uid or room.get("sockets", {}).get(uid) is not websocket:
+                    continue
+                sender = next((p for p in room["players"] if str(p["user_id"]) == str(uid)), None)
+                if sender is None:
+                    sender = room.get("spectators", {}).get(uid)
+                if sender:
                     await broadcast(room, {
                         "event": "NEW_MESSAGE",
-                        "message": {"user_id": uid, "name": me["name"], "color": me["color"], "text": str(data.get("text", ""))[:200]}
+                        "message": {
+                            "user_id": uid, "name": sender.get("name", "Гость"),
+                            "color": sender.get("color", "guest"),
+                            "text": str(data.get("text", ""))[:200]
+                        }
                     })
 
             elif act == "SEND_VOICE_MESSAGE":
@@ -1688,7 +1716,7 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                 })
 
             elif act == "VOICE":
-                if not any(p["user_id"] == uid for p in room["players"]):
+                if not uid or room.get("sockets", {}).get(uid) is not websocket:
                     continue
                 target = str(data.get("to", ""))
                 if target in room["sockets"]:
@@ -1703,7 +1731,7 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                     print(f"[VOICE_DIAG] user={uid} platform={platform} event={event_name} info={detail}")
 
             elif act == "VOICE_MIC":
-                if not any(p["user_id"] == uid for p in room["players"]):
+                if not uid or room.get("sockets", {}).get(uid) is not websocket:
                     continue
                 await broadcast(room, {"event": "VOICE_MIC", "user_id": uid, "on": bool(data.get("on"))})
 
@@ -1725,5 +1753,12 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
     except WebSocketDisconnect:
         if voice_session_token:
             VOICE_SESSIONS.pop(voice_session_token, None)
-        if uid and uid in room["sockets"] and room["sockets"].get(uid) is websocket:
+        if uid and room.get("sockets", {}).get(uid) is websocket:
             del room["sockets"][uid]
+            if uid in room.get("spectators", {}):
+                room["spectators"].pop(uid, None)
+                await broadcast(room, {
+                    "event": "ROOM_MEMBERS",
+                    "players": room["players"],
+                    "spectators": list(room.get("spectators", {}).values())
+                })
