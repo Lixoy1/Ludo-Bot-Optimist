@@ -44,17 +44,22 @@ const Voice = (() => {
         iceServers = STUN.concat(turn);
     }
 
-    function setPlayers(list) {
-        players = list || [];
+    function setPlayers(list, spectators) {
+        const seated = Array.isArray(list) ? list : [];
+        const viewers = Array.isArray(spectators) ? spectators : [];
+        const combined = [...seated, ...viewers.map((p) => ({ ...p, vip: true, is_spectator: true }))];
+        const unique = new Map();
+        combined.forEach((p) => { if (p && p.user_id !== undefined) unique.set(String(p.user_id), p); });
+        players = [...unique.values()];
         const me = players.find((p) => String(p.user_id) === String(userId));
-        isPlayer = !!me;
+        isPlayer = !!me; // authenticated spectators can speak too
         amVip = true;
         renderButton();
-        if (!me) return;   // kóriwshi — dawıs chatına qatnaspaydı
-        // Mikrofonı qosılǵan VIP'lerden maǵan baylanıs sorayman (qayta jalǵanǵanda da)
+        if (!me) return;
         players.filter((p) => p.vip && String(p.user_id) !== String(userId))
             .forEach((p) => sendWs({ action: "VOICE", to: p.user_id, kind: "hello" }));
-        if (mic) players.filter((p) => String(p.user_id) !== String(userId)).forEach((p) => { if (!out[p.user_id]) offerTo(p.user_id); });
+        if (mic) players.filter((p) => String(p.user_id) !== String(userId))
+            .forEach((p) => { if (!out[p.user_id]) offerTo(p.user_id); });
         startPoll();
     }
 
