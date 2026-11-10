@@ -1004,14 +1004,8 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                             "game_mode": room["game_mode"],
                             "players": room["players"]
                         })
-                        if len(room["players"]) == 4:
-                            pending_start = room.get("start_task")
-                            if pending_start and not pending_start.done():
-                                pending_start.cancel()
-                            room["start_task"] = None
-                            await begin_match(room)
-                        elif len(room["players"]) >= 2 and not room["start_task"]:
-                            room["start_task"] = asyncio.create_task(schedule_autostart(room))
+                        # Joining only seats the player. The explicit group START
+                        # callback controls when the match begins.
                     else:
                         active_p = next((p for p in room["players"] if p["color"] == room["turn"]), room["players"][0])
                         await websocket.send_json({
