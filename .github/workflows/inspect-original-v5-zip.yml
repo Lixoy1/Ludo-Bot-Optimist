@@ -1,0 +1,48 @@
+name: Inspect original Ludo ZIP (audit only)
+on:
+  push:
+    branches: [audit/inspect-original-v5-zip]
+permissions:
+  contents: read
+jobs:
+  inspect:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Inspect original archive sources
+        run: |
+          python - <<'PY'
+          import zipfile, re
+          z=zipfile.ZipFile("Optimist_Ludo_v5.zip")
+          names=sorted(n for n in z.namelist() if not n.endswith("/"))
+          print("ZIP_FILE_COUNT", len(names))
+          print("SOURCE_FILES:")
+          for n in names:
+              if n.lower().endswith((".py",".js",".ts",".tsx",".json",".html")):
+                  print(n)
+          terms=re.compile(r"CommandStart|send_start_menu|startapp|ROOM_STATE|callback_query|START_GAME|JOIN_GAME|callback_data|InlineKeyboard|timer|lobby|start_game|join_game|web_app|WebAppInfo",re.I)
+          shown=0
+          print("\n=== MATCHED ORIGINAL BOT IMPLEMENTATION ===")
+          for n in names:
+              if not n.lower().endswith((".py",".js",".ts",".tsx")):
+                  continue
+              try: text=z.read(n).decode("utf-8")
+              except Exception: continue
+              lines=text.splitlines()
+              hits=[i for i,line in enumerate(lines) if terms.search(line)]
+              if not hits: continue
+              print("\n--- FILE:",n,"---")
+              ranges=[]
+              for i in hits:
+                  a=max(0,i-5); b=min(len(lines),i+12)
+                  if ranges and a<=ranges[-1][1]+2: ranges[-1]=(ranges[-1][0],max(ranges[-1][1],b))
+                  else: ranges.append((a,b))
+              for a,b in ranges:
+                  print("\n".join(f"{k+1}: {lines[k]}" for k in range(a,b)))
+                  print("...")
+                  shown += b-a
+                  if shown>2400:
+                      print("TRUNCATED_AFTER_2400_SOURCE_LINES")
+                      raise SystemExit(0)
+          print("\nTOTAL_MATCHED_SOURCE_LINES",shown)
+          PY
