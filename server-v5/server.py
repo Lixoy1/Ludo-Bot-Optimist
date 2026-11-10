@@ -920,7 +920,33 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
     if not (1 <= len(base_code) <= 10 and all(c in string.ascii_uppercase + string.digits for c in base_code)):
         await websocket.close(code=1008)
         return
-    room = await create_room_state(base_code)
+    room = ROOMS.get(base_code)
+    if room is None:
+        # Recover a room persisted by the Telegram bot if this worker's in-memory
+        # cache does not contain it. Never silently create a new empty 0/4 room.
+        async with DB_LOCK:
+            row = db.execute("SELECT state_json FROM rooms WHERE code=?", (base_code,)).fetchone()
+        if row:
+            try:
+                room = json.loads(row[0])
+                room["sockets"] = {}
+                room["start_task"] = None
+                room["turn_task"] = None
+                room["turn_gen"] = int(room.get("turn_gen", 0))
+                room["actor_task"] = None
+                room.setdefault("creator_user_id", None)
+                ROOMS[base_code] = room
+                ROOM_LOCKS.setdefault(base_code, asyncio.Lock())
+            except (TypeError, ValueError, json.JSONDecodeError):
+                room = None
+    if room is None:
+        await websocket.send_json({
+            "event": "ROOM_NOT_FOUND",
+            "message": "Комната не найдена. Вернитесь в группу и нажмите «Войти в игру» ещё раз."
+        })
+        await websocket.close(code=4404)
+        return
+
     uid = None
     await websocket.send_json({"event": "CONNECTION_ESTABLISHED"})
 

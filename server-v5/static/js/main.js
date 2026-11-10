@@ -602,7 +602,15 @@ async function handleMessage(data) {
         }
     }
 
-        if (data.event === "AUTH_ERROR") {
+        if (data.event === "ROOM_NOT_FOUND") {
+            joinRequestPending = false;
+            joinConfirmed = false;
+            const title = document.getElementById("room-title");
+            if (title) title.textContent = "Комната не найдена";
+            const waiting = document.querySelector(".lobby-title");
+            if (waiting) waiting.textContent = "Вернитесь в группу и откройте игру заново";
+            showChatNotification("", data.message || "Комната не найдена. Откройте игру кнопкой из группы.", null, 9000);
+        } else if (data.event === "AUTH_ERROR") {
             joinRequestPending = false;
             showChatNotification('', data.message || "Требуется открыть игру через Telegram", null, 7000);
         } else if (data.event === "GAME_ERROR") {

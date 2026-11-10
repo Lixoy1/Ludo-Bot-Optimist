@@ -1,0 +1,27 @@
+const assert = require("node:assert/strict");
+const fs = require("node:fs");
+const vm = require("node:vm");
+const html = fs.readFileSync("index.html", "utf8");
+const match = html.match(/<script>([\\s\\S]*?)<\\/script>/);
+assert.ok(match, "inline ROOM_CODE script must exist");
+function roomCode({ startParam = "", initData = "", search = "", hash = "", pathname = "/" } = {}) {
+  const context = {
+    window: {
+      Telegram: { WebApp: { initDataUnsafe: { start_param: startParam, user: { language_code: "ru" } }, initData } },
+      location: { search, hash, pathname }
+    },
+    URLSearchParams,
+    navigator: { language: "ru" },
+    console
+  };
+  vm.runInNewContext(match[1], context);
+  return context.ROOM_CODE;
+}
+assert.equal(roomCode({ startParam: "join_TSXTEP" }), "TSXTEP");
+assert.equal(roomCode({ startParam: "TSXTEP" }), "TSXTEP");
+assert.equal(roomCode({ startParam: "join_TSXTEP_A" }), "TSXTEP_A");
+assert.equal(roomCode({ initData: "user=%7B%7D&start_param=join_TSXTEP" }), "TSXTEP");
+assert.equal(roomCode({ search: "?tgWebAppStartParam=join_TSXTEP" }), "TSXTEP");
+assert.equal(roomCode({ hash: "#tgWebAppStartParam=join_TSXTEP" }), "TSXTEP");
+assert.equal(roomCode({ pathname: "/room/TSXTEP" }), "TSXTEP");
+console.log("Room deep-link parsing: 7 assertions passed.");
