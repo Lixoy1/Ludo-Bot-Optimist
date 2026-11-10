@@ -205,6 +205,7 @@ class BotRoomTests(unittest.TestCase):
             "user_id": "human-1", "name": "Player", "color": "green",
             "team": "B", "skin": "optimist", "finished": False,
         }])
+        room["code"] = "ABC123"
         room["status"] = "PLAYING"
         keyboard = server.render_tg_lobby_kb(room)
         button = keyboard.inline_keyboard[0][0]
