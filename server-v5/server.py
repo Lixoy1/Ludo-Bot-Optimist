@@ -87,10 +87,41 @@ def build_voice_ice_servers(user_id: str) -> list:
     return [{"urls": urls, "username": username, "credential": credential}]
 
 
-# ─── База SQLite для профилей и персистентного хранения комнат ───
-DB_PATH = os.getenv("DATABASE_PATH", "ludo.db")
-os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
-db = sqlite3.connect(DB_PATH, check_same_thread=False)
+# ─── Persistent database: Neon PostgreSQL in production, SQLite locally ───
+DATABASE_URL = os.getenv("DATABASE_URL", "").strip()
+DB_BACKEND = "postgres" if DATABASE_URL else "sqlite"
+
+if DATABASE_URL:
+    import psycopg
+    _raw_db = psycopg.connect(DATABASE_URL, connect_timeout=20)
+else:
+    DB_PATH = os.getenv("DATABASE_PATH", "ludo.db")
+    os.makedirs(os.path.dirname(os.path.abspath(DB_PATH)), exist_ok=True)
+    _raw_db = sqlite3.connect(DB_PATH, check_same_thread=False)
+
+class DatabaseAdapter:
+    """Keep the existing SQLite-style call sites working on both database engines."""
+    def __init__(self, connection, backend):
+        self.connection = connection
+        self.backend = backend
+
+    def execute(self, query, params=()):
+        if self.backend == "postgres":
+            query = query.replace(
+                "INSERT OR REPLACE INTO rooms (code, state_json) VALUES (?, ?)",
+                "INSERT INTO rooms (code, state_json) VALUES (?, ?) "
+                "ON CONFLICT (code) DO UPDATE SET state_json = EXCLUDED.state_json"
+            )
+            query = query.replace("?", "%s")
+        return self.connection.execute(query, params)
+
+    def commit(self):
+        return self.connection.commit()
+
+    def close(self):
+        return self.connection.close()
+
+db = DatabaseAdapter(_raw_db, DB_BACKEND)
 db.execute("""
 CREATE TABLE IF NOT EXISTS users (
     user_id TEXT PRIMARY KEY,
@@ -914,7 +945,7 @@ app.mount("/static", StaticFiles(directory="static"), name="static")
 async def healthz():
     try:
         db.execute("SELECT 1").fetchone()
-    except sqlite3.Error:
+    except Exception:
         raise HTTPException(status_code=503, detail="Database unavailable")
     return {"status": "ok"}
 
