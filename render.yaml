@@ -17,5 +17,7 @@ services:
         value: production
       - key: ALLOW_DEV_AUTH
         value: "false"
+      - key: DATABASE_URL
+        sync: false
       - key: DATABASE_PATH
         value: /tmp/ludo.db
