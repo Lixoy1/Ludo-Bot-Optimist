@@ -1214,6 +1214,8 @@ function drawBoard(roomData) {
     const board = document.getElementById("ludo-board");
     if(!board) return;
     const state = roomData || latestRoomState;
+    board.dataset.theme = boardTheme;
+    Object.entries(BoardThemes.vars(boardTheme)).forEach(([key, value]) => board.style.setProperty(key, value));
     board.innerHTML = buildBoardArt();
     const grid = document.createElement("div");
     grid.className = "board-grid-inner";
