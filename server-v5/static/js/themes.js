@@ -42,22 +42,22 @@
             </g>
 <g fill="#FCFBF7" stroke="#FFFFFF" stroke-width="2"><circle cx="135.6" cy="135.6" r="88"/><circle cx="464.4" cy="135.6" r="88"/><circle cx="464.4" cy="464.4" r="88"/><circle cx="135.6" cy="464.4" r="88"/></g>
             <g fill="#FCFBF7" stroke-width="4">
-                <circle cx="72" cy="72" r="17" stroke="#79A987"/>
-                <circle cx="168" cy="72" r="17" stroke="#79A987"/>
-                <circle cx="72" cy="168" r="17" stroke="#79A987"/>
-                <circle cx="168" cy="168" r="17" stroke="#79A987"/>
-                <circle cx="432" cy="72" r="17" stroke="#C1A45C"/>
-                <circle cx="528" cy="72" r="17" stroke="#C1A45C"/>
-                <circle cx="432" cy="168" r="17" stroke="#C1A45C"/>
-                <circle cx="528" cy="168" r="17" stroke="#C1A45C"/>
-                <circle cx="432" cy="432" r="17" stroke="#7D9FBE"/>
-                <circle cx="528" cy="432" r="17" stroke="#7D9FBE"/>
-                <circle cx="432" cy="528" r="17" stroke="#7D9FBE"/>
-                <circle cx="528" cy="528" r="17" stroke="#7D9FBE"/>
-                <circle cx="72" cy="432" r="17" stroke="#C28C85"/>
-                <circle cx="168" cy="432" r="17" stroke="#C28C85"/>
-                <circle cx="72" cy="528" r="17" stroke="#C28C85"/>
-                <circle cx="168" cy="528" r="17" stroke="#C28C85"/>
+                <circle cx="91.75" cy="91.75" r="17" stroke="#79A987"/>
+                <circle cx="179.44" cy="91.75" r="17" stroke="#79A987"/>
+                <circle cx="91.75" cy="179.44" r="17" stroke="#79A987"/>
+                <circle cx="179.44" cy="179.44" r="17" stroke="#79A987"/>
+                <circle cx="420.56" cy="91.75" r="17" stroke="#C1A45C"/>
+                <circle cx="508.25" cy="91.75" r="17" stroke="#C1A45C"/>
+                <circle cx="420.56" cy="179.44" r="17" stroke="#C1A45C"/>
+                <circle cx="508.25" cy="179.44" r="17" stroke="#C1A45C"/>
+                <circle cx="420.56" cy="420.56" r="17" stroke="#7D9FBE"/>
+                <circle cx="508.25" cy="420.56" r="17" stroke="#7D9FBE"/>
+                <circle cx="420.56" cy="508.25" r="17" stroke="#7D9FBE"/>
+                <circle cx="508.25" cy="508.25" r="17" stroke="#7D9FBE"/>
+                <circle cx="91.75" cy="420.56" r="17" stroke="#C28C85"/>
+                <circle cx="179.44" cy="420.56" r="17" stroke="#C28C85"/>
+                <circle cx="91.75" cy="508.25" r="17" stroke="#C28C85"/>
+                <circle cx="179.44" cy="508.25" r="17" stroke="#C28C85"/>
             </g>
             <path d="M245.2 245.2H354.8V354.8H245.2Z" fill="#FBFAF6" stroke="#8E918D" stroke-width="2.2"/>
             <path d="M245.2 245.2L300 300L354.8 245.2Z" fill="#F0E2B7"/>
