@@ -124,7 +124,8 @@ async def save_room_db(room: dict):
             "dice": room["dice"],
             "consecutive_sixes": room.get("consecutive_sixes", 0),
             "chat_id": room.get("chat_id"),
-            "msg_id": room.get("msg_id")
+            "msg_id": room.get("msg_id"),
+            "creator_user_id": room.get("creator_user_id")
         }
         async with DB_LOCK:
             db.execute("INSERT OR REPLACE INTO rooms (code, state_json) VALUES (?, ?)", (room["code"], json.dumps(snapshot)))
@@ -141,6 +142,7 @@ def load_rooms_from_db():
                 data["start_task"] = None
                 data["turn_task"] = None
                 data["turn_gen"] = 0
+                data.setdefault("creator_user_id", None)
                 ROOMS[code] = data
                 ROOM_LOCKS[code] = asyncio.Lock()
     except Exception:
@@ -174,7 +176,7 @@ async def get_user(uid: str, name: str = "Игрок", photo_url: str = ""):
 def gen_code():
     return "".join(random.choices(string.ascii_uppercase + string.digits, k=6))
 
-async def create_room_state(code: str, mode: str = "STANDARD", chat_id: int = None, msg_id: int = None):
+async def create_room_state(code: str, mode: str = "STANDARD", chat_id: int = None, msg_id: int = None, creator_user_id: int = None):
     mode = str(mode or "STANDARD").upper()
     if mode not in MODE_NAMES:
         raise ValueError("Unsupported game mode")
@@ -191,6 +193,7 @@ async def create_room_state(code: str, mode: str = "STANDARD", chat_id: int = No
             "sockets": {},
             "chat_id": chat_id,
             "msg_id": msg_id,
+            "creator_user_id": str(creator_user_id) if creator_user_id is not None else None,
             "start_task": None,
             "turn_task": None,
             "turn_gen": 0
@@ -231,18 +234,22 @@ def render_tg_lobby_kb(room):
             [InlineKeyboardButton(text="🔄 Новая игра", callback_data=f"new_{room['game_mode']}")]
         ])
     if room["game_mode"] == "TEAM" and room["status"] == "WAITING":
-        return InlineKeyboardMarkup(inline_keyboard=[
+        rows = [
             [
                 InlineKeyboardButton(text="🔴🟡 Команда A", url=f"{WEBAPP_URL}/room/{code}_A"),
                 InlineKeyboardButton(text="🟢🔵 Команда B", url=f"{WEBAPP_URL}/room/{code}_B")
             ],
             [InlineKeyboardButton(text="🎭 Мои персонажи", url=f"{WEBAPP_URL}/cabinet")]
-        ])
-    btn_text = "🎲 Войти в игру" if room["status"] == "WAITING" else "🔄 Вернуться / Смотреть"
-    return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=btn_text, url=f"{WEBAPP_URL}/room/{code}")],
-        [InlineKeyboardButton(text="🎭 Персонажи и настройки", url=f"{WEBAPP_URL}/cabinet")]
-    ])
+        ]
+    else:
+        btn_text = "🎲 Присоединиться к игре" if room["status"] == "WAITING" else "🔄 Вернуться / Смотреть"
+        rows = [
+            [InlineKeyboardButton(text=btn_text, url=f"{WEBAPP_URL}/room/{code}")],
+            [InlineKeyboardButton(text="🎭 Персонажи и настройки", url=f"{WEBAPP_URL}/cabinet")]
+        ]
+    if room["status"] == "WAITING" and len(room.get("players", [])) >= 2:
+        rows.insert(1, [InlineKeyboardButton(text="▶️ Начать игру", callback_data=f"start_{code}")])
+    return InlineKeyboardMarkup(inline_keyboard=rows)
 
 async def sync_tg_message(room):
     await save_room_db(room)
@@ -371,12 +378,76 @@ async def cmd_game(message: types.Message):
 async def cb_new_game(call: types.CallbackQuery):
     mode = call.data.split("_", 1)[1]
     code = gen_code()
-    room = await create_room_state(code, mode, chat_id=call.message.chat.id, msg_id=call.message.message_id)
+    room = await create_room_state(code, mode, chat_id=call.message.chat.id, msg_id=call.message.message_id, creator_user_id=call.from_user.id)
     await call.message.edit_text(
         render_tg_lobby_text(room),
         reply_markup=render_tg_lobby_kb(room),
         parse_mode="Markdown"
     )
+    await call.answer("Комната создана. Отправьте друзьям кнопку «Присоединиться к игре».")
+
+@dp.callback_query(F.data.startswith("start_"))
+async def cb_start_game(call: types.CallbackQuery):
+    code = call.data.split("_", 1)[1]
+    room = ROOMS.get(code)
+    if not room or room.get("status") != "WAITING":
+        await call.answer("Комната уже закрыта или игра началась.", show_alert=True)
+        return
+    creator_id = str(room.get("creator_user_id") or "")
+    if creator_id and str(call.from_user.id) != creator_id:
+        await call.answer("Начать игру может только создатель комнаты.", show_alert=True)
+        return
+    async with ROOM_LOCKS[code]:
+        if room.get("status") != "WAITING":
+            await call.answer("Игра уже началась.", show_alert=True)
+            return
+        if len(room.get("players", [])) < 2:
+            await call.answer("Нужно минимум два игрока.", show_alert=True)
+            return
+        task = room.get("start_task")
+        if task and not task.done():
+            task.cancel()
+        room["start_task"] = None
+        await begin_match(room)
+    await call.answer("Игра начинается!")
+
+@dp.my_chat_member()
+async def on_bot_added(event: types.ChatMemberUpdated):
+    old_status = event.old_chat_member.status
+    new_status = event.new_chat_member.status
+    if new_status in ("member", "administrator") and old_status in ("left", "kicked"):
+        chat = event.chat
+        if chat.type not in ("group", "supergroup"):
+            return
+        is_admin = new_status == "administrator"
+        message = (
+            "🎲 **Optimist Ludo добавлен в группу!**\\n\\n"
+            "Базовая игра, создание комнат и подключение игроков работают без прав администратора. "
+            "Для запуска отправьте /game и выберите режим.\\n\\n"
+            + ("✅ Бот уже администратор группы." if is_admin else
+               "ℹ️ Сейчас бот не администратор. Это не мешает игре. Если хотите выдать ему права, "
+               "откройте настройки группы → Администраторы → Добавить администратора → Optimist Ludo. "
+               "Не выдавайте право добавлять новых администраторов.")
+        )
+        try:
+            await event.bot.send_message(chat.id, message, parse_mode="Markdown")
+        except Exception as exc:
+            print(f"[BOT_ADDED_NOTICE] chat={chat.id} error={exc}")
+
+@dp.my_chat_member()
+async def on_bot_membership_changed(event: types.ChatMemberUpdated):
+    if event.new_chat_member.status == "administrator" and event.old_chat_member.status != "administrator":
+        if event.chat.type in ("group", "supergroup"):
+            try:
+                await event.bot.send_message(
+                    event.chat.id,
+                    "✅ **Права администратора получены.**\\n"
+                    "Теперь можно создавать комнаты командой /game. "
+                    "Для обычной партии дополнительных разрешений не требуется.",
+                    parse_mode="Markdown"
+                )
+            except Exception as exc:
+                print(f"[BOT_ADMIN_NOTICE] chat={event.chat.id} error={exc}")
 
 # ─── FastAPI Сервер ───
 @asynccontextmanager
