@@ -2,8 +2,10 @@ const assert = require("node:assert/strict");
 const fs = require("node:fs");
 const vm = require("node:vm");
 const html = fs.readFileSync("index.html", "utf8");
-const match = html.match(/<script>([\\s\\S]*?)<\\/script>/);
-assert.ok(match, "inline ROOM_CODE script must exist");
+const scriptStart = html.indexOf("<script>");
+const scriptEnd = html.indexOf("</script>", scriptStart);
+assert.ok(scriptStart >= 0 && scriptEnd > scriptStart, "inline ROOM_CODE script must exist");
+const script = html.slice(scriptStart + "<script>".length, scriptEnd);
 function roomCode({ startParam = "", initData = "", search = "", hash = "", pathname = "/" } = {}) {
   const context = {
     window: {
@@ -14,7 +16,7 @@ function roomCode({ startParam = "", initData = "", search = "", hash = "", path
     navigator: { language: "ru" },
     console
   };
-  vm.runInNewContext(match[1], context);
+  vm.runInNewContext(script, context);
   return context.ROOM_CODE;
 }
 assert.equal(roomCode({ startParam: "join_TSXTEP" }), "TSXTEP");
