@@ -143,6 +143,7 @@ def load_rooms_from_db():
                 data["start_task"] = None
                 data["turn_task"] = None
                 data["turn_gen"] = 0
+                data["actor_task"] = None
                 data.setdefault("creator_user_id", None)
                 ROOMS[code] = data
                 ROOM_LOCKS[code] = asyncio.Lock()
@@ -197,7 +198,8 @@ async def create_room_state(code: str, mode: str = "STANDARD", chat_id: int = No
             "creator_user_id": str(creator_user_id) if creator_user_id is not None else None,
             "start_task": None,
             "turn_task": None,
-            "turn_gen": 0
+            "turn_gen": 0,
+            "actor_task": None
         }
         ROOM_LOCKS[code] = asyncio.Lock()
         await save_room_db(ROOMS[code])
@@ -237,19 +239,22 @@ def render_tg_lobby_kb(room):
     if room["game_mode"] == "TEAM" and room["status"] == "WAITING":
         rows = [
             [
-                InlineKeyboardButton(text="🔴🟡 Команда A", url=f"https://t.me/Ludo_optimist_bot?start=join_{code}_A"),
-                InlineKeyboardButton(text="🟢🔵 Команда B", url=f"https://t.me/Ludo_optimist_bot?start=join_{code}_B")
+                InlineKeyboardButton(text="🔴🟡 Команда A", url=f"https://t.me/Ludo_optimist_bot?startapp=join_{code}_A"),
+                InlineKeyboardButton(text="🟢🔵 Команда B", url=f"https://t.me/Ludo_optimist_bot?startapp=join_{code}_B")
             ],
             [InlineKeyboardButton(text="🎭 Мои персонажи", url=f"https://t.me/Ludo_optimist_bot?start=cabinet")]
         ]
     else:
         btn_text = "🎲 Присоединиться к игре" if room["status"] == "WAITING" else "🔄 Вернуться / Смотреть"
         rows = [
-            [InlineKeyboardButton(text=btn_text, url=f"https://t.me/Ludo_optimist_bot?start=join_{code}")],
+            [InlineKeyboardButton(text=btn_text, url=f"https://t.me/Ludo_optimist_bot?startapp=join_{code}")],
             [InlineKeyboardButton(text="🎭 Персонажи и настройки", url=f"https://t.me/Ludo_optimist_bot?start=cabinet")]
         ]
-    if room["status"] == "WAITING" and len(room.get("players", [])) >= 2:
-        rows.insert(1, [InlineKeyboardButton(text="▶️ Начать игру", callback_data=f"start_{code}")])
+    creator_id = str(room.get("creator_user_id") or "")
+    creator_is_seated = any(str(p.get("user_id")) == creator_id for p in room.get("players", []))
+    if room["status"] == "WAITING" and creator_is_seated:
+        label = "🤖 Играть с ботами" if len(room.get("players", [])) == 1 else "▶️ Начать игру · боты заполнят места"
+        rows.insert(1, [InlineKeyboardButton(text=label, callback_data=f"start_{code}")])
     return InlineKeyboardMarkup(inline_keyboard=rows)
 
 async def sync_tg_message(room):
@@ -295,28 +300,272 @@ def arm_turn_timer(room):
 
     room["turn_task"] = asyncio.create_task(_timeout())
 
-async def begin_match(room):
-    if room["status"] != "WAITING" or len(room["players"]) < 2:
+BOT_ROSTER = [
+    ("НАТАЛИ", "natalie"), ("НИКИТА", "nikita"), ("ЛИЛЯ", "lilya-detective"),
+    ("ХАСКИ", "husky"), ("СОВА", "owl"), ("ЕНОТ", "raccoon"),
+    ("POISON", "poison"), ("ЭЛЬВИНА", "elvina")
+]
+
+def fill_bot_seats(room):
+    """Fill all empty seats with in-game AI players; no extra Telegram bots are needed."""
+    used = {p["color"] for p in room["players"]}
+    seat = 0
+    while len(room["players"]) < 4:
+        color = next((c for c in COLORS if c not in used), None)
+        if not color:
+            break
+        name, skin = BOT_ROSTER[seat % len(BOT_ROSTER)]
+        bot_id = f"bot_{room['code']}_{seat + 1}"
+        room["players"].append({
+            "user_id": bot_id, "name": name, "photo_url": "", "color": color,
+            "team": "A" if color in ("red", "yellow") else "B",
+            "skin": skin, "is_bot": True, "vip": False,
+            "missed_turns": 0, "rank": None, "left": False, "finished": False
+        })
+        used.add(color)
+        seat += 1
+
+def bot_legal_pieces(room, color, dice):
+    return [
+        index for index, pos in enumerate(room["board_state"][color])
+        if (pos == -1 and dice == 6) or (0 <= pos <= 56 and pos + dice <= 56)
+    ]
+
+def choose_bot_piece(room, color, legal_pieces, dice, bot):
+    """Prioritize finishing, capturing, leaving base, then advancing."""
+    board = room["board_state"]
+    best_index, best_score = legal_pieces[0], float("-inf")
+    for index in legal_pieces:
+        pos = board[color][index]
+        new_pos = 0 if pos == -1 and dice == 6 else pos + dice
+        score = 0.0
+        if new_pos == 56:
+            score += 100000
+        elif new_pos >= 51:
+            score += 2500 + new_pos
+        else:
+            global_index = (START_OFFSET[color] + new_pos) % 52
+            score += 300 + new_pos * 12
+            if pos == -1:
+                score += 450
+            if global_index in SAFE_GLOBAL:
+                score += 80
+            else:
+                for enemy_color, positions in board.items():
+                    if enemy_color == color:
+                        continue
+                    enemy = next((p for p in room["players"] if p["color"] == enemy_color), None)
+                    if room["game_mode"] == "TEAM" and enemy and enemy.get("team") == bot.get("team"):
+                        continue
+                    score += sum(
+                        12000 for enemy_pos in positions
+                        if 0 <= enemy_pos <= 50 and
+                        (START_OFFSET[enemy_color] + enemy_pos) % 52 == global_index
+                    )
+        if pos >= 0:
+            score += (new_pos - pos) * (8 if pos >= 51 else 4)
+        score += (3 - index) * 0.01
+        if score > best_score:
+            best_index, best_score = index, score
+    return best_index
+
+async def schedule_turn_actor(room):
+    """Start the autonomous action for the active seat once."""
+    if room.get("status") != "PLAYING":
         return
+    task = room.get("actor_task")
+    if task and not task.done():
+        return
+    player = next((p for p in room["players"] if p["color"] == room["turn"]), None)
+    if not player or player.get("finished") or player.get("left"):
+        return
+    if player.get("is_bot"):
+        room["actor_task"] = asyncio.create_task(run_bot_turn(room))
+        return
+    positions = room["board_state"].get(player["color"], [])
+    if room.get("dice") is None and positions and all(pos == -1 for pos in positions):
+        room["actor_task"] = asyncio.create_task(auto_roll_until_six(room, player["color"]))
+    else:
+        arm_turn_timer(room)
+
+async def auto_roll_until_six(room, color):
+    """Auto-roll the opening until a six appears, then return control to the player."""
+    current = asyncio.current_task()
+    try:
+        for _ in range(90):
+            await asyncio.sleep(0.55)
+            async with ROOM_LOCKS[room["code"]]:
+                if room.get("status") != "PLAYING" or room.get("turn") != color or room.get("dice") is not None:
+                    return
+                player = next((p for p in room["players"] if p["color"] == color), None)
+                if not player or player.get("is_bot") or any(pos != -1 for pos in room["board_state"].get(color, [])):
+                    return
+                value = random.randint(1, 6)
+                room["consecutive_sixes"] = room.get("consecutive_sixes", 0) + 1 if value == 6 else 0
+                completed = value == 6
+                if completed:
+                    room["dice"] = 6
+                    arm_turn_timer(room)
+                await broadcast(room, {
+                    "event": "DICE_RESULT", "color": color, "value": value,
+                    "board_state": room["board_state"], "auto_start": True,
+                    "auto_start_complete": completed
+                })
+                await save_room_db(room)
+                if completed:
+                    return
+        async with ROOM_LOCKS[room["code"]]:
+            if room.get("status") == "PLAYING" and room.get("turn") == color and room.get("dice") is None:
+                arm_turn_timer(room)
+                await broadcast(room, {"event": "GAME_ERROR", "message": "Автозапуск остановлен. Бросьте кубик вручную."})
+    finally:
+        if room.get("actor_task") is current:
+            room["actor_task"] = None
+
+async def apply_bot_move(room, bot, piece_index):
+    color = bot["color"]
+    value = room.get("dice")
+    if value is None:
+        return
+    old_pos = room["board_state"][color][piece_index]
+    if old_pos == -1 and value == 6:
+        new_pos = 0
+    elif 0 <= old_pos <= 56 and old_pos + value <= 56:
+        new_pos = old_pos + value
+    else:
+        room["dice"] = None
+        room["actor_task"] = None
+        await next_turn(room)
+        return
+
+    room["board_state"][color][piece_index] = new_pos
+    captured_any = False
+    if 0 <= new_pos <= 50:
+        global_index = (START_OFFSET[color] + new_pos) % 52
+        if global_index not in SAFE_GLOBAL:
+            for enemy_color, positions in room["board_state"].items():
+                if enemy_color == color:
+                    continue
+                enemy = next((p for p in room["players"] if p["color"] == enemy_color), None)
+                if room["game_mode"] == "TEAM" and enemy and enemy.get("team") == bot.get("team"):
+                    continue
+                for enemy_index, enemy_pos in enumerate(positions):
+                    if 0 <= enemy_pos <= 50 and (START_OFFSET[enemy_color] + enemy_pos) % 52 == global_index:
+                        positions[enemy_index] = -1
+                        captured_any = True
+
+    room["dice"] = None
+    await save_room_db(room)
+    await broadcast(room, {
+        "event": "PIECE_MOVED", "board_state": room["board_state"],
+        "move_info": {"color": color, "piece_id": piece_index, "from": old_pos, "to": new_pos, "is_bot": True}
+    })
+
+    if all(pos == 56 for pos in room["board_state"][color]):
+        bot["finished"] = True
+        finished_count = sum(1 for p in room["players"] if p.get("rank"))
+        bot["rank"] = finished_count + 1
+        if room["game_mode"] == "TEAM":
+            team_done = all(p.get("finished") for p in room["players"] if p.get("team") == bot.get("team"))
+            if team_done:
+                room["status"] = "FINISHED"
+                room["actor_task"] = None
+                await broadcast(room, {"event": "GAME_OVER", "players": room["players"], "rating_changes": {}})
+                await sync_tg_message(room)
+                return
+        elif finished_count + 1 >= len(room["players"]) - 1:
+            room["status"] = "FINISHED"
+            room["actor_task"] = None
+            await broadcast(room, {"event": "GAME_OVER", "players": room["players"], "rating_changes": {}})
+            await sync_tg_message(room)
+            return
+
+    if value == 6 or new_pos == 56 or captured_any:
+        active_p = next((p for p in room["players"] if p["color"] == room["turn"]), bot)
+        await broadcast(room, {
+            "event": "TURN_CHANGED", "active_color": room["turn"], "active_user_id": active_p["user_id"],
+            "board_state": room["board_state"], "players": room["players"],
+            "timer": 15 if room["game_mode"] == "BLITZ" else 30
+        })
+        room["actor_task"] = None
+        await schedule_turn_actor(room)
+    else:
+        room["actor_task"] = None
+        await next_turn(room)
+
+async def run_bot_turn(room):
+    current = asyncio.current_task()
+    try:
+        for _ in range(12):
+            await asyncio.sleep(0.62)
+            async with ROOM_LOCKS[room["code"]]:
+                if room.get("status") != "PLAYING":
+                    return
+                bot = next((p for p in room["players"] if p["color"] == room["turn"]), None)
+                if not bot or not bot.get("is_bot") or room.get("dice") is not None:
+                    return
+                value = random.randint(1, 6)
+                room["consecutive_sixes"] = room.get("consecutive_sixes", 0) + 1 if value == 6 else 0
+                if room["consecutive_sixes"] >= 3:
+                    room["consecutive_sixes"] = 0
+                    await broadcast(room, {
+                        "event": "DICE_RESULT", "color": bot["color"], "value": value,
+                        "board_state": room["board_state"], "is_bot": True
+                    })
+                    room["actor_task"] = None
+                    await next_turn(room)
+                    return
+                room["dice"] = value
+                legal = bot_legal_pieces(room, bot["color"], value)
+                await broadcast(room, {
+                    "event": "DICE_RESULT", "color": bot["color"], "value": value,
+                    "board_state": room["board_state"], "is_bot": True,
+                    "auto_start": all(pos == -1 for pos in room["board_state"][bot["color"]])
+                })
+                await save_room_db(room)
+                if not legal:
+                    room["dice"] = None
+                    if value == 6:
+                        continue
+                    room["actor_task"] = None
+                    await next_turn(room)
+                    return
+                piece_index = choose_bot_piece(room, bot["color"], legal, value, bot)
+
+            await asyncio.sleep(0.48)
+            async with ROOM_LOCKS[room["code"]]:
+                if room.get("status") != "PLAYING" or room.get("turn") != bot["color"] or room.get("dice") != value:
+                    return
+                await apply_bot_move(room, bot, piece_index)
+                return
+
+        async with ROOM_LOCKS[room["code"]]:
+            if room.get("status") == "PLAYING":
+                room["actor_task"] = None
+                await next_turn(room)
+    finally:
+        if room.get("actor_task") is current:
+            room["actor_task"] = None
+
+async def begin_match(room):
+    if room["status"] != "WAITING" or not room["players"]:
+        return
+    fill_bot_seats(room)
     room["start_task"] = None
     room["status"] = "PLAYING"
     room["turn"] = room["players"][0]["color"]
     room["consecutive_sixes"] = 0
+    room["dice"] = None
     active_p = room["players"][0]
     t_sec = 15 if room["game_mode"] == "BLITZ" else 30
-
     await broadcast(room, {
-        "event": "GAME_STARTED",
-        "status": "PLAYING",
-        "game_mode": room["game_mode"],
-        "board_state": room["board_state"],
-        "players": room["players"],
-        "turn": room["turn"],
-        "active_user_id": active_p["user_id"],
-        "timer": t_sec
+        "event": "GAME_STARTED", "status": "PLAYING", "game_mode": room["game_mode"],
+        "board_state": room["board_state"], "players": room["players"],
+        "turn": room["turn"], "active_user_id": active_p["user_id"], "timer": t_sec
     })
-    arm_turn_timer(room)
     await sync_tg_message(room)
+    await save_room_db(room)
+    await schedule_turn_actor(room)
 
 async def schedule_autostart(room):
     current = asyncio.current_task()
@@ -339,17 +588,12 @@ async def next_turn(room):
     room["turn"] = active_colors[idx]
     active_p = next((p for p in room["players"] if p["color"] == room["turn"]), room["players"][0])
     t_sec = 15 if room["game_mode"] == "BLITZ" else 30
-
     await save_room_db(room)
     await broadcast(room, {
-        "event": "TURN_CHANGED",
-        "active_color": room["turn"],
-        "active_user_id": active_p["user_id"],
-        "board_state": room["board_state"],
-        "players": room["players"],
-        "timer": t_sec
+        "event": "TURN_CHANGED", "active_color": room["turn"], "active_user_id": active_p["user_id"],
+        "board_state": room["board_state"], "players": room["players"], "timer": t_sec
     })
-    arm_turn_timer(room)
+    await schedule_turn_actor(room)
 
 # ─── Telegram-бот ───
 bot = Bot(token=BOT_TOKEN) if BOT_TOKEN != BOT_TOKEN_PLACEHOLDER else None
@@ -433,8 +677,8 @@ async def cb_start_game(call: types.CallbackQuery):
         if room.get("status") != "WAITING":
             await call.answer("Игра уже началась.", show_alert=True)
             return
-        if len(room.get("players", [])) < 2:
-            await call.answer("Нужно минимум два игрока.", show_alert=True)
+        if len(room.get("players", [])) < 1:
+            await call.answer("Сначала войдите в комнату через кнопку «Присоединиться».", show_alert=True)
             return
         task = room.get("start_task")
         if task and not task.done():
@@ -707,8 +951,8 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                         await websocket.send_json({"event": "GAME_ERROR", "message": "Игра уже началась"})
                     elif not room["players"] or room["players"][0]["user_id"] != uid:
                         await websocket.send_json({"event": "GAME_ERROR", "message": "Начать игру может только создатель комнаты"})
-                    elif len(room["players"]) < 2:
-                        await websocket.send_json({"event": "GAME_ERROR", "message": "Нужно минимум два игрока"})
+                    elif len(room["players"]) < 1:
+                        await websocket.send_json({"event": "GAME_ERROR", "message": "Сначала войдите в комнату"})
                     else:
                         task = room.get("start_task")
                         if task and not task.done():
