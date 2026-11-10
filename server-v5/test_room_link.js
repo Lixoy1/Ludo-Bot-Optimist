@@ -1,7 +1,7 @@
 import assert from "node:assert/strict";
 import fs from "node:fs";
 import vm from "node:vm";
-const html = fs.readFileSync("index.html", "utf8");
+const html = fs.readFileSync("server-v5/index.html", "utf8");
 const scriptStart = html.indexOf("<script>");
 const scriptEnd = html.indexOf("</script>", scriptStart);
 assert.ok(scriptStart >= 0 && scriptEnd > scriptStart, "inline ROOM_CODE script must exist");
