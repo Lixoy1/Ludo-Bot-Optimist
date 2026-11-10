@@ -744,6 +744,25 @@ async def cmd_start(message: types.Message):
     await send_start_menu(message)
 
 
+@dp.message(Command("help"))
+async def cmd_help(message: types.Message):
+    help_text = (
+        "🎲 **OPTIMIST LUDO — помощь**\\n\\n"
+        "🎮 **Начать игру**\\n"
+        "• В личном чате: /start или /game — выбрать режим и создать партию.\\n"
+        "• В группе: /game — создать стол, затем нажать «Присоединиться» или «Старт».\\n"
+        "• /play и /ludo — альтернативные команды запуска.\\n\\n"
+        "👥 **Подключиться к игре**\\n"
+        "Нажмите ссылку-приглашение от создателя и откройте игру через кнопку бота.\\n\\n"
+        "🎭 **Персонажи и доски**\\n"
+        "В меню выберите «Мои персонажи и доски», чтобы открыть профиль.\\n\\n"
+        "🎙️ **Голосовые и чат**\\n"
+        "Откройте чат в игре. Для голосового сообщения удерживайте кнопку микрофона и отпустите, чтобы отправить.\\n\\n"
+        "Если игра не открывается, отправьте /start и нажмите кнопку запуска ещё раз."
+    )
+    await message.answer(help_text, parse_mode="Markdown")
+
+
 @dp.message(Command("game", "play", "ludo"))
 async def cmd_game(message: types.Message):
     await send_start_menu(message)
@@ -950,6 +969,15 @@ async def on_bot_membership_changed(event: types.ChatMemberUpdated):
 async def lifespan(app: FastAPI):
     if APP_ENV == "production" and BOT_TOKEN == BOT_TOKEN_PLACEHOLDER:
         raise RuntimeError("BOT_TOKEN must be configured in production")
+    if bot is not None:
+        try:
+            await bot.set_my_commands([
+                types.BotCommand(command="start", description="Открыть Optimist Ludo"),
+                types.BotCommand(command="game", description="Создать игру"),
+                types.BotCommand(command="help", description="Помощь и правила"),
+            ])
+        except Exception as exc:
+            print(f"[BOT_COMMANDS] Не удалось обновить меню команд: {exc}")
     task = asyncio.create_task(dp.start_polling(bot)) if bot is not None else None
     try:
         yield
