@@ -64,6 +64,10 @@ jobs:
           done
           grep -q '"status":"ok"' /tmp/healthz.json
           curl --silent --fail http://127.0.0.1:8765/ >/tmp/ludo-index.html
+          curl --silent --fail http://127.0.0.1:8765/room/ABC123 >/tmp/ludo-room-path.html
+          curl --silent --fail 'http://127.0.0.1:8765/?startapp=join_ABC123' >/tmp/ludo-room-query.html
           curl --silent --fail http://127.0.0.1:8765/cabinet >/tmp/ludo-cabinet.html
           grep -q 'character-select-overlay' /tmp/ludo-index.html
+          grep -q 'window.__LUDO_SERVER_ROOM_CODE__ = "ABC123";' /tmp/ludo-room-path.html
+          grep -q 'window.__LUDO_SERVER_ROOM_CODE__ = "ABC123";' /tmp/ludo-room-query.html
           grep -q 'id="skins"' /tmp/ludo-cabinet.html
