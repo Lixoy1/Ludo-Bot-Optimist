@@ -362,7 +362,8 @@ async def cmd_game(message: types.Message):
     parts = (message.text or "").split(maxsplit=1)
     payload = parts[1].strip() if len(parts) > 1 else ""
     if payload.startswith("join_"):
-        code = payload[5:].upper()
+        room_path = payload[5:].upper()
+        code = room_path.split("_", 1)[0]
         room = ROOMS.get(code)
         if not room or room.get("status") not in ("WAITING", "PLAYING"):
             await message.answer("Эта игровая комната уже недоступна. Попросите друга создать новую.")
@@ -370,7 +371,7 @@ async def cmd_game(message: types.Message):
         if message.chat.type != "private":
             await message.answer("Чтобы войти в игру, откройте личный чат с @Ludo_optimist_bot.")
             return
-        join_url = f"{WEBAPP_URL}/room/{code}"
+        join_url = f"{WEBAPP_URL}/room/{room_path}"
         kb = InlineKeyboardMarkup(inline_keyboard=[[
             InlineKeyboardButton(text="🎲 Открыть игру и присоединиться", web_app=WebAppInfo(url=join_url))
         ]])
