@@ -28,10 +28,10 @@ jobs:
           from pathlib import Path
           import re
           html = Path("server-v5/cabinet.html").read_text(encoding="utf-8")
-          scripts = re.findall(r"<script>([\\s\\S]*?)</script>", html)
+          scripts = re.findall(r"<script>(.*?)</script>", html, re.S)
           if not scripts:
               raise SystemExit("cabinet inline script not found")
-          Path("/tmp/cabinet-inline.js").write_text("\\n".join(scripts), encoding="utf-8")
+          Path("/tmp/cabinet-inline.js").write_text("\n".join(scripts), encoding="utf-8")
           PY
           node --check /tmp/cabinet-inline.js
       - name: Smoke-test FastAPI routes
