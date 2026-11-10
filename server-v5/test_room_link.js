@@ -7,15 +7,19 @@ const end = html.indexOf("</script>", start);
 assert.ok(start >= 0 && end > start, "inline room resolver missing");
 const script = html.slice(start + 8, end);
 function code({serverCode="",startParam="",initData="",search="",hash="",pathname="/",href=""}={}) {
+  // Simulate the server replacing the marker before sending index.html.
+  const renderedScript = script.replace(
+    'window.__LUDO_SERVER_ROOM_CODE__ = "";',
+    'window.__LUDO_SERVER_ROOM_CODE__ = ' + JSON.stringify(serverCode) + ';'
+  );
   const context = {
     window: {
-      __LUDO_SERVER_ROOM_CODE__: serverCode,
       Telegram: {WebApp:{initDataUnsafe:{start_param:startParam,user:{language_code:"ru"}},initData}},
       location:{search,hash,pathname,href}
     },
     URLSearchParams,navigator:{language:"ru"},console,decodeURIComponent
   };
-  return vm.runInNewContext(script + "\nROOM_CODE;", context);
+  return vm.runInNewContext(renderedScript + "\\nROOM_CODE;", context);
 }
 assert.equal(code({serverCode:"TSXTEP"}),"TSXTEP");
 assert.equal(code({serverCode:"TSXTEP_A"}),"TSXTEP_A");
