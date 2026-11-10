@@ -41,6 +41,8 @@ jobs:
           grep -q 'def get_room_voice' server-v5/server.py
           grep -q 'VOICE_SESSIONS\[voice_session_token\]' server-v5/server.py
           grep -q 'data.event === "VOICE_SESSION"' server-v5/static/js/main.js
+          grep -q 'function setPlayers(list, spectators)' server-v5/static/js/voice.js
+          grep -q 'data.event === "ROOM_MEMBERS"' server-v5/static/js/main.js
           grep -q 'function createLudoVoicePlayer' server-v5/static/js/main.js
           grep -q 'audioBitsPerSecond: 32_000' server-v5/static/js/main.js
           grep -q 'addEventListener("pointerdown"' server-v5/static/js/main.js
@@ -56,6 +58,7 @@ jobs:
       - name: Check browser JavaScript syntax
         run: |
           node --check server-v5/static/js/main.js
+          node --check server-v5/static/js/voice.js
           grep -q 'Telegram must receive ready() immediately' server-v5/static/js/main.js
           grep -q 'try { if (typeof tg.ready === "function") tg.ready(); }' server-v5/static/js/main.js
           python - <<'PY'
