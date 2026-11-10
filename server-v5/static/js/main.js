@@ -477,6 +477,7 @@ function connectWebSocket() {
 
     ws.onclose = function(event) {
         console.log("WS Closed:", event);
+        voiceSessionToken = "";
         stopHeartbeat();
         joinRequestPending = false;
         if (event.code === 4403 || event.code === 4404) {
@@ -2286,12 +2287,6 @@ function addMessageToUI(msg) {
             }
         };
         player.addEventListener("click", () => { if (!player.src) void loadVoice(); }, { once: true });
-        player.addEventListener("play", () => {
-            if (!player.src) {
-                player.pause();
-                void loadVoice();
-            }
-        }, { once: true });
         msgDiv.appendChild(player);
     } else if (msg.audio_data) {
         // Backward compatibility for voice messages sent by older clients.
@@ -2312,7 +2307,7 @@ function addMessageToUI(msg) {
 
     // Eger chat jabıq bolsa hám xabar basqa adamnan kelse, aqırǵı xabardı kórsetiw
     if (!isChatOpen && !isMe) {
-        showChatNotification(msg.name, msg.audio_data ? tr("voice_note") : msg.text, msg.color);
+        showChatNotification(msg.name, (msg.voice_id || msg.audio_data) ? tr("voice_note") : msg.text, msg.color);
         if (btn) btn.classList.add('has-unread');
     }
 }
