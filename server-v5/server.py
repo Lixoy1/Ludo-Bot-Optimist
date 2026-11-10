@@ -248,7 +248,7 @@ def render_tg_lobby_kb(room):
             [InlineKeyboardButton(text="▶️ Старт", callback_data=f"start_{code}")]
         ])
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎮 Войти в игру", web_app=WebAppInfo(url=f"{WEBAPP_URL}/room/{code}"))],
+        [InlineKeyboardButton(text="🎮 Войти в игру", url=f"https://t.me/Ludo_optimist_bot?startapp=join_{code}")],
         [InlineKeyboardButton(text="🔄 Новая игра", callback_data=f"new_{room['game_mode']}")]
     ])
 
@@ -758,7 +758,7 @@ async def cb_start_game(call: types.CallbackQuery):
     enter_kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(
             text="🎮 Войти в игру",
-            web_app=WebAppInfo(url=f"{WEBAPP_URL}/room/{code}")
+            url=f"https://t.me/Ludo_optimist_bot?startapp=join_{code}"
         )
     ]])
     await call.message.answer(
