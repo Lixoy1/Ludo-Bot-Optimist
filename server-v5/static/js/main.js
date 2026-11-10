@@ -477,7 +477,6 @@ function connectWebSocket() {
 
     ws.onclose = function(event) {
         console.log("WS Closed:", event);
-        voiceSessionToken = "";
         stopHeartbeat();
         joinRequestPending = false;
         if (event.code === 4403 || event.code === 4404) {
@@ -670,18 +669,22 @@ async function handleMessage(data) {
             showChatNotification('', data.message || tr("error"), null, 4500);
         } else if (data.event === "CONNECTION_ESTABLISHED") {
             diceRequestPending = false;
-            // HÁMIŚE JOIN_GAME jiberemiz — server ózi sheshedi: bos WAITING bolsa
-            // OYINSHI etip qosadı, bolmasa (tolı / PLAYING / FINISHED) KÓRIWSHI
-            // (spectator) etip. BÚRÍN kóriwshi (PLAYING oyınǵa sırttan kirgen)
-            // JOIN jibermeytuǵın edi — sonlıqtan server'де authed_user_id
-            // ornatılmay, chat/stiker/animation úndemey taslanatuǵın edi.
-            autoJoinGame();
+            const alreadySeated = (data.players || []).some(p => String(p.user_id) === String(userId));
+            const canChooseCharacter = data.status === "WAITING" &&
+                !alreadySeated && (data.players || []).length < 4;
+            if (canChooseCharacter && !joinConfirmed) {
+                void showCharacterSelection();
+            } else {
+                joinConfirmed = true;
+                autoJoinGame();
+            }
         } else if (data.event === "ROOM_STATE") {
             latestRoomState = data;
             if ((data.players || []).some(p => String(p.user_id) === String(userId))) {
                 joinedThisRoom = true;
+                joinConfirmed = true;
+                localStorage.setItem("ludo_last_joined_room", cleanRoomCode);
                 joinRequestPending = false;
-                // The saved character is applied automatically; no blocking picker step.
             }
             setTurnSeconds(data.game_mode);
             updateRoomUI(data);
@@ -710,8 +713,6 @@ async function handleMessage(data) {
                 }
                 activeTurnColor = data.turn;
             }
-        } else if (data.event === "VOICE_SESSION") {
-            voiceSessionToken = String(data.token || "");
         } else if (data.event === "VOICE_ERROR") {
             showChatNotification("", data.message || "Ошибка голосового сообщения.", null, 5000);
         } else if (data.event === "VOICE") {
@@ -736,6 +737,10 @@ async function handleMessage(data) {
             currentValidPieces = [];
             latestRoomState = data;
             joinedThisRoom = (data.players || []).some(p => String(p.user_id) === String(userId));
+            if (joinedThisRoom) {
+                joinConfirmed = true;
+                localStorage.setItem("ludo_last_joined_room", cleanRoomCode);
+            }
             joinRequestPending = false;
             const picker = document.getElementById("character-select-overlay");
             if (picker) picker.hidden = true;
@@ -834,6 +839,10 @@ async function handleMessage(data) {
 }
 
 function autoJoinGame() {
+    if (!joinConfirmed) {
+        void showCharacterSelection();
+        return;
+    }
     if (!ws || ws.readyState !== WebSocket.OPEN || joinRequestPending) return;
     // Enter immediately. The cabinet's saved character remains the default;
     // only send a match override when the player explicitly saved one locally.
@@ -2117,35 +2126,6 @@ let voiceNoteStream = null;
 let voiceNoteChunks = [];
 let voiceNoteStartedAt = 0;
 let voiceNoteMaxTimer = null;
-let voiceSessionToken = "";
-
-async function uploadVoiceNote(blob, durationSeconds) {
-    if (!voiceSessionToken || !cleanRoomCode) {
-        showChatNotification("", "Игровая сессия обновляется. Попробуй отправить голосовое ещё раз.", null, 5000);
-        return;
-    }
-    const mime = (blob.type || "audio/webm").split(";")[0].toLowerCase();
-    if (!["audio/webm", "audio/ogg", "audio/mp4"].includes(mime)) {
-        showChatNotification("", "Формат записи не поддерживается. Попробуй обновить Telegram.", null, 5000);
-        return;
-    }
-    try {
-        const response = await fetch("/api/rooms/" + encodeURIComponent(cleanRoomCode) + "/voice", {
-            method: "POST",
-            headers: {
-                "content-type": mime,
-                "x-room-session": voiceSessionToken,
-                "x-voice-duration": String(durationSeconds)
-            },
-            body: blob
-        });
-        const data = await response.json().catch(() => ({}));
-        if (!response.ok) throw new Error(data.detail || data.message || "Не удалось отправить голосовое.");
-    } catch (error) {
-        showChatNotification("", error instanceof Error ? error.message : "Не удалось отправить голосовое.", null, 6000);
-        console.warn("[VOICE_UPLOAD_ERROR]", error);
-    }
-}
 
 async function toggleVoiceNoteRecording() {
     const button = document.getElementById("voice-note-btn");
@@ -2153,7 +2133,7 @@ async function toggleVoiceNoteRecording() {
         voiceNoteRecorder.stop();
         return;
     }
-    if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia || typeof MediaRecorder === "undefined") {
+    if (!navigator.mediaDevices?.getUserMedia || typeof MediaRecorder === "undefined") {
         showChatNotification("", "Запись аудио не поддерживается этим браузером Telegram.", null, 6000);
         return;
     }
@@ -2161,68 +2141,110 @@ async function toggleVoiceNoteRecording() {
         showChatNotification("", tr("no_server"), null, 4000);
         return;
     }
-    if (!voiceSessionToken) {
-        showChatNotification("", "Подключаем голосовой канал. Подожди секунду и попробуй снова.", null, 4000);
-        return;
-    }
+
     try {
-        voiceNoteStream = await navigator.mediaDevices.getUserMedia({ audio: { echoCancellation: true, noiseSuppression: true } });
+        voiceNoteStream = await navigator.mediaDevices.getUserMedia({
+            audio: { echoCancellation: true, noiseSuppression: true }
+        });
         const preferred = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"];
-        const mimeType = preferred.find(type => MediaRecorder.isTypeSupported && MediaRecorder.isTypeSupported(type));
-        voiceNoteRecorder = mimeType ? new MediaRecorder(voiceNoteStream, { mimeType }) : new MediaRecorder(voiceNoteStream);
+        const mimeType = preferred.find(type => MediaRecorder.isTypeSupported?.(type));
+        voiceNoteRecorder = mimeType
+            ? new MediaRecorder(voiceNoteStream, { mimeType })
+            : new MediaRecorder(voiceNoteStream);
         voiceNoteChunks = [];
         voiceNoteStartedAt = Date.now();
+
         voiceNoteRecorder.ondataavailable = event => {
-            if (event.data && event.data.size) voiceNoteChunks.push(event.data);
+            if (event.data && event.data.size > 0) voiceNoteChunks.push(event.data);
         };
         voiceNoteRecorder.onerror = event => {
-            console.warn("Voice note recorder error:", event.error || event);
-            showChatNotification("", "Не удалось записать голосовое сообщение.", null, 5000);
+            console.warn("[VOICE_RECORDER_ERROR]", event.error || event);
+            showChatNotification("", "Не удалось записать звук. Проверь доступ к микрофону.", null, 5000);
         };
-        voiceNoteRecorder.onstop = async () => {
+        voiceNoteRecorder.onstop = () => {
             if (voiceNoteMaxTimer) clearTimeout(voiceNoteMaxTimer);
             voiceNoteMaxTimer = null;
             const recorder = voiceNoteRecorder;
             voiceNoteRecorder = null;
-            if (voiceNoteStream) voiceNoteStream.getTracks().forEach(track => track.stop());
+            const stream = voiceNoteStream;
             voiceNoteStream = null;
+            if (stream) stream.getTracks().forEach(track => track.stop());
+
             if (button) {
                 button.classList.remove("is-recording");
                 button.textContent = "🎙️";
                 button.title = "Записать голосовое сообщение";
             }
-            const duration = Math.min(30000, Date.now() - voiceNoteStartedAt);
-            const blob = new Blob(voiceNoteChunks, { type: (recorder && recorder.mimeType) || (voiceNoteChunks[0] && voiceNoteChunks[0].type) || "audio/webm" });
+
+            const durationMs = Math.min(30000, Date.now() - voiceNoteStartedAt);
+            const blob = new Blob(voiceNoteChunks, {
+                type: (recorder && recorder.mimeType) || voiceNoteChunks[0]?.type || "audio/webm"
+            });
             voiceNoteChunks = [];
-            if (blob.size < 1200) {
-                showChatNotification("", "Запись слишком короткая.", null, 3500);
+
+            if (durationMs < 1200 || blob.size < 1200) {
+                showChatNotification("", "Запишите голосовое хотя бы 2 секунды.", null, 4000);
+                console.warn("[VOICE_RECORD_EMPTY]", { durationMs, bytes: blob.size, mime: blob.type });
                 return;
             }
             if (blob.size > 675000) {
                 showChatNotification("", "Запись слишком большая. Запишите сообщение короче.", null, 5000);
                 return;
             }
-            void uploadVoiceNote(blob, Math.max(1, Math.min(30, Math.ceil(duration / 1000))));
+
+            const mime = (blob.type || "audio/webm").split(";")[0].toLowerCase();
+            const reader = new FileReader();
+            reader.onload = () => {
+                const encoded = String(reader.result || "").split(",")[1] || "";
+                if (!encoded || !ws || ws.readyState !== WebSocket.OPEN) {
+                    showChatNotification("", "Соединение потеряно. Голосовое сообщение не отправлено.", null, 5000);
+                    return;
+                }
+                try {
+                    ws.send(JSON.stringify({
+                        action: "SEND_VOICE_MESSAGE",
+                        user_id: userId,
+                        audio_data: encoded,
+                        mime_type: mime,
+                        duration_ms: durationMs
+                    }));
+                    showChatNotification("", "Голосовое отправляется…", null, 1800);
+                    console.info("[VOICE_RECORD_READY]", { durationMs, bytes: blob.size, mime });
+                } catch (error) {
+                    console.warn("[VOICE_SEND_ERROR]", error);
+                    showChatNotification("", "Не удалось отправить голосовое. Попробуйте ещё раз.", null, 4500);
+                }
+            };
+            reader.onerror = () => showChatNotification("", "Не удалось подготовить аудиозапись.", null, 4500);
+            reader.readAsDataURL(blob);
         };
+
+        // Same recorder cadence and supported codecs as Optimist Durak.
         voiceNoteRecorder.start(250);
         if (button) {
             button.classList.add("is-recording");
             button.textContent = "■";
-            button.title = tr("recording");
+            button.title = "Остановить запись и отправить";
         }
-        showChatNotification("", tr("recording"), null, 32000);
+        showChatNotification("", "Запись началась. Говори и нажми ■ для отправки.", null, 32000);
         voiceNoteMaxTimer = setTimeout(() => {
-            if (voiceNoteRecorder && voiceNoteRecorder.state === "recording") voiceNoteRecorder.stop();
+            if (voiceNoteRecorder?.state === "recording") voiceNoteRecorder.stop();
         }, 30000);
     } catch (error) {
         if (voiceNoteStream) voiceNoteStream.getTracks().forEach(track => track.stop());
         voiceNoteStream = null;
-        if (button) button.classList.remove("is-recording");
-        const message = error && error.name === "NotAllowedError"
+        voiceNoteRecorder = null;
+        if (button) {
+            button.classList.remove("is-recording");
+            button.textContent = "🎙️";
+        }
+        const message = error?.name === "NotAllowedError"
             ? "Разрешите Telegram доступ к микрофону в настройках телефона."
-            : "Не удалось включить запись. Проверьте доступ к микрофону.";
-        showChatNotification("", message, null, 6000);
-        console.warn("Voice note start failed:", error);
+            : error?.name === "NotReadableError"
+                ? "Микрофон занят другим приложением. Закрой запись экрана/диктофон и попробуй снова."
+                : "Не удалось включить запись. Проверь доступ к микрофону.";
+        showChatNotification("", message, null, 6500);
+        console.warn("[VOICE_START_FAILED]", error);
     }
 }
 
@@ -2260,47 +2282,28 @@ function addMessageToUI(msg) {
 
     msgDiv.className = `chat-msg ${isMe ? 'my-msg' : 'other-msg'}`;
     const author = isMe ? '' : `<small style="color: ${displayColor};">${escapeHtml(msg.name)}</small>`;
-    if (msg.voice_id && /^[a-f0-9]{32}$/.test(msg.voice_id)) {
+    if (msg.audio_data) {
+        // Use the direct data-URI audio player from Optimist Durak.
         const mime = ["audio/webm", "audio/ogg", "audio/mp4"].includes(msg.mime_type) ? msg.mime_type : "audio/webm";
-        msgDiv.innerHTML = `${author}<div class="voice-message-caption">🎙️ Голосовое сообщение · ${Math.max(1, Number(msg.duration_seconds) || 1)} сек.</div>`;
+        const seconds = Math.max(1, Math.ceil(Number(msg.duration_ms || 0) / 1000));
+        msgDiv.innerHTML = `${author}<div class="voice-message-caption">🎙️ Голосовое сообщение · ${seconds} сек.</div>`;
         const player = document.createElement("audio");
         player.className = "voice-message-audio";
         player.controls = true;
-        player.preload = "none";
+        player.preload = "metadata";
+        player.src = `data:${mime};base64,${msg.audio_data}`;
+        player.addEventListener("error", () => {
+            showChatNotification("", "Не удалось прочитать аудиофайл. Запиши сообщение ещё раз.", null, 5000);
+            console.warn("[VOICE_PLAYBACK_ERROR]", {
+                mime, durationMs: msg.duration_ms,
+                audioBytes: Math.floor(msg.audio_data.length * 3 / 4)
+            });
+        });
         player.addEventListener("play", () => {
             document.querySelectorAll(".voice-message-audio").forEach(other => {
                 if (other !== player) other.pause();
             });
         });
-        player.addEventListener("error", () => showChatNotification("", "Не удалось воспроизвести голосовое. Возможно, оно уже удалено.", null, 5000));
-        const loadVoice = async () => {
-            if (!voiceSessionToken) {
-                showChatNotification("", "Переподключаем голосовой канал. Подожди секунду.", null, 3500);
-                return;
-            }
-            try {
-                const response = await fetch("/api/rooms/" + encodeURIComponent(cleanRoomCode) + "/voice/" + encodeURIComponent(msg.voice_id), {
-                    headers: { "x-room-session": voiceSessionToken }
-                });
-                if (!response.ok) throw new Error("Голосовое сообщение недоступно.");
-                const blob = await response.blob();
-                player.src = URL.createObjectURL(blob);
-                await player.play();
-            } catch (error) {
-                showChatNotification("", error instanceof Error ? error.message : "Не удалось загрузить голосовое.", null, 5000);
-            }
-        };
-        player.addEventListener("click", () => { if (!player.src) void loadVoice(); }, { once: true });
-        msgDiv.appendChild(player);
-    } else if (msg.audio_data) {
-        // Backward compatibility for voice messages sent by older clients.
-        const mime = ["audio/webm", "audio/ogg", "audio/mp4"].includes(msg.mime_type) ? msg.mime_type : "audio/webm";
-        msgDiv.innerHTML = `${author}<div class="voice-message-caption">🎙️ Голосовое сообщение</div>`;
-        const player = document.createElement("audio");
-        player.className = "voice-message-audio";
-        player.controls = true;
-        player.preload = "none";
-        player.src = `data:${mime};base64,${msg.audio_data}`;
         msgDiv.appendChild(player);
     } else {
         msgDiv.innerHTML = `${author}<span>${escapeHtml(msg.text)}</span>`;
@@ -2311,7 +2314,7 @@ function addMessageToUI(msg) {
 
     // Eger chat jabıq bolsa hám xabar basqa adamnan kelse, aqırǵı xabardı kórsetiw
     if (!isChatOpen && !isMe) {
-        showChatNotification(msg.name, (msg.voice_id || msg.audio_data) ? tr("voice_note") : msg.text, msg.color);
+        showChatNotification(msg.name, msg.audio_data ? tr("voice_note") : msg.text, msg.color);
         if (btn) btn.classList.add('has-unread');
     }
 }
