@@ -236,15 +236,15 @@ def render_tg_lobby_kb(room):
     if room["game_mode"] == "TEAM" and room["status"] == "WAITING":
         rows = [
             [
-                InlineKeyboardButton(text="🔴🟡 Команда A", url=f"{WEBAPP_URL}/room/{code}_A"),
-                InlineKeyboardButton(text="🟢🔵 Команда B", url=f"{WEBAPP_URL}/room/{code}_B")
+                InlineKeyboardButton(text="🔴🟡 Команда A", url=f"https://t.me/Ludo_optimist_bot?start=join_{code}_A"),
+                InlineKeyboardButton(text="🟢🔵 Команда B", url=f"https://t.me/Ludo_optimist_bot?start=join_{code}_B")
             ],
             [InlineKeyboardButton(text="🎭 Мои персонажи", url=f"{WEBAPP_URL}/cabinet")]
         ]
     else:
         btn_text = "🎲 Присоединиться к игре" if room["status"] == "WAITING" else "🔄 Вернуться / Смотреть"
         rows = [
-            [InlineKeyboardButton(text=btn_text, url=f"{WEBAPP_URL}/room/{code}")],
+            [InlineKeyboardButton(text=btn_text, url=f"https://t.me/Ludo_optimist_bot?start=join_{code}")],
             [InlineKeyboardButton(text="🎭 Персонажи и настройки", url=f"{WEBAPP_URL}/cabinet")]
         ]
     if room["status"] == "WAITING" and len(room.get("players", [])) >= 2:
@@ -357,6 +357,30 @@ dp = Dispatcher()
 @dp.message(CommandStart())
 @dp.message(Command("game", "play", "ludo"))
 async def cmd_game(message: types.Message):
+    # A group invite is opened in the private bot chat first. Telegram supplies
+    # signed WebApp initData only when the WebApp is launched from this button.
+    parts = (message.text or "").split(maxsplit=1)
+    payload = parts[1].strip() if len(parts) > 1 else ""
+    if payload.startswith("join_"):
+        code = payload[5:].upper()
+        room = ROOMS.get(code)
+        if not room or room.get("status") not in ("WAITING", "PLAYING"):
+            await message.answer("Эта игровая комната уже недоступна. Попросите друга создать новую.")
+            return
+        if message.chat.type != "private":
+            await message.answer("Чтобы войти в игру, откройте личный чат с @Ludo_optimist_bot.")
+            return
+        join_url = f"{WEBAPP_URL}/room/{code}"
+        kb = InlineKeyboardMarkup(inline_keyboard=[[
+            InlineKeyboardButton(text="🎲 Открыть игру и присоединиться", web_app=WebAppInfo(url=join_url))
+        ]])
+        await message.answer(
+            f"Комната **{code}** найдена. Нажмите кнопку ниже — так Telegram передаст данные для безопасного входа.",
+            reply_markup=kb,
+            parse_mode="Markdown"
+        )
+        return
+
     kb = InlineKeyboardMarkup(inline_keyboard=[
         [
             InlineKeyboardButton(text="🎲 Стандарт", callback_data="new_STANDARD"),
