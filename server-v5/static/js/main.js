@@ -2317,7 +2317,6 @@ function bindVoiceNoteButton() {
         event.preventDefault();
         voicePressActive = true;
         voicePressPointerId = event.pointerId;
-        try { button.setPointerCapture(event.pointerId); } catch (_) {}
         void startVoiceNoteRecording();
     });
 
@@ -2327,9 +2326,9 @@ function bindVoiceNoteButton() {
         event.preventDefault?.();
         stopVoiceNoteRecording();
     };
-    button.addEventListener("pointerup", release);
-    button.addEventListener("pointercancel", release);
-    button.addEventListener("lostpointercapture", release);
+    // Listen globally so releasing just outside the button still sends the clip.
+    document.addEventListener("pointerup", release);
+    document.addEventListener("pointercancel", release);
     button.addEventListener("contextmenu", event => event.preventDefault());
 
     // Keyboard accessibility: hold Space to record, release Space to send.
