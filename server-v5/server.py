@@ -224,8 +224,13 @@ def render_tg_lobby_text(room):
                   "⏳ _Если ждёте людей, игра стартует автоматически через 15 сек после входа 2-го игрока (или при 4/4)._")
         return header + body + footer
     elif room["status"] == "PLAYING":
-        plist = "\n".join([f"{COLOR_EMOJI[p['color']]} {p['name']}" for p in players])
-        return f"🔥 **Игра идёт! ({title})**\nКомната: `{room['code']}`\n\n{plist}"
+        active = next((p for p in players if p.get("color") == room.get("turn")), None)
+        plist = "\n".join([
+            f"{'👉 ' if p is active else ''}{COLOR_EMOJI[p['color']]} {p['name']}{' — ХОДИТ' if p is active else ''}"
+            for p in players
+        ])
+        turn_line = f"\n\n🎲 **Сейчас ходит: {active['name']}**" if active else ""
+        return f"🔥 **Игра идёт! ({title})**\nКомната: `{room['code']}`{turn_line}\n\n{plist}"
     else:
         sorted_p = sorted(players, key=lambda x: x.get("rank") or 99)
         res = "\n".join([f"#{p.get('rank', '×')} {COLOR_EMOJI[p['color']]} {p['name']}" for p in sorted_p])
@@ -237,26 +242,16 @@ def render_tg_lobby_kb(room):
         return InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔄 Новая игра", callback_data=f"new_{room['game_mode']}")]
         ])
-    if room["game_mode"] == "TEAM" and room["status"] == "WAITING":
-        rows = [
-            [
-                InlineKeyboardButton(text="🔴🟡 Команда A", url=f"https://t.me/Ludo_optimist_bot?startapp=join_{code}_A"),
-                InlineKeyboardButton(text="🟢🔵 Команда B", url=f"https://t.me/Ludo_optimist_bot?startapp=join_{code}_B")
-            ],
-            [InlineKeyboardButton(text="🎭 Мои персонажи", url=f"https://t.me/Ludo_optimist_bot?start=cabinet")]
-        ]
-    else:
-        btn_text = "🎲 Присоединиться к игре" if room["status"] == "WAITING" else "🔄 Вернуться / Смотреть"
-        rows = [
-            [InlineKeyboardButton(text=btn_text, url=f"https://t.me/Ludo_optimist_bot?startapp=join_{code}")],
-            [InlineKeyboardButton(text="🎭 Персонажи и настройки", url=f"https://t.me/Ludo_optimist_bot?start=cabinet")]
-        ]
-    creator_id = str(room.get("creator_user_id") or "")
-    creator_is_seated = any(str(p.get("user_id")) == creator_id for p in room.get("players", []))
-    if room["status"] == "WAITING" and creator_is_seated:
-        label = "🤖 Играть с ботами" if len(room.get("players", [])) == 1 else "▶️ Начать игру · боты заполнят места"
-        rows.insert(1, [InlineKeyboardButton(text=label, callback_data=f"start_{code}")])
-    return InlineKeyboardMarkup(inline_keyboard=rows)
+    if room["status"] == "WAITING":
+        join_url = f"https://t.me/Ludo_optimist_bot?startapp=join_{code}"
+        return InlineKeyboardMarkup(inline_keyboard=[
+            [InlineKeyboardButton(text="🎲 ПРИСОЕДИНИТЬСЯ", url=join_url)],
+            [InlineKeyboardButton(text="▶️ СТАРТ", callback_data=f"start_{code}")]
+        ])
+    return InlineKeyboardMarkup(inline_keyboard=[
+        [InlineKeyboardButton(text="🎮 Открыть игру", url=f"https://t.me/Ludo_optimist_bot?startapp=join_{code}")],
+        [InlineKeyboardButton(text="🔄 Новая игра", callback_data=f"new_{room['game_mode']}")]
+    ])
 
 async def sync_tg_message(room):
     await save_room_db(room)
@@ -603,6 +598,7 @@ async def next_turn(room):
         "event": "TURN_CHANGED", "active_color": room["turn"], "active_user_id": active_p["user_id"],
         "board_state": room["board_state"], "players": room["players"], "timer": t_sec
     })
+    await sync_tg_message(room)
     await schedule_turn_actor(room)
 
 # ─── Telegram-бот ───
@@ -687,15 +683,38 @@ async def cb_start_game(call: types.CallbackQuery):
         if room.get("status") != "WAITING":
             await call.answer("Игра уже началась.", show_alert=True)
             return
-        if len(room.get("players", [])) < 1:
-            await call.answer("Сначала войдите в комнату через кнопку «Присоединиться».", show_alert=True)
-            return
+        # The creator may press START directly in the group without first opening
+        # the Mini App. Add their Telegram identity as the first seat.
+        creator_uid = str(call.from_user.id)
+        if not any(str(p.get("user_id")) == creator_uid for p in room["players"]):
+            if room["players"]:
+                await call.answer("Сначала нажмите «Присоединиться», затем «Старт».", show_alert=True)
+                return
+            profile = await get_user(
+                creator_uid,
+                call.from_user.first_name or "Optimist",
+                call.from_user.photo_url or ""
+            )
+            color = profile.get("fav_color") if profile.get("fav_color") in COLORS else "green"
+            room["players"].append({
+                "user_id": creator_uid,
+                "name": profile["name"],
+                "photo_url": profile["photo_url"],
+                "color": color,
+                "team": "A" if color in ("red", "yellow") else "B",
+                "skin": profile["skin"],
+                "opening_roll_completed": False,
+                "vip": True,
+                "missed_turns": 0,
+                "rank": None,
+                "left": False
+            })
         task = room.get("start_task")
         if task and not task.done():
             task.cancel()
         room["start_task"] = None
         await begin_match(room)
-    await call.answer("Игра начинается!")
+    await call.answer("Игра начинается! Остальные места заняли боты.")
 
 @dp.my_chat_member()
 async def on_bot_membership_changed(event: types.ChatMemberUpdated):
