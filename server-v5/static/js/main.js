@@ -1246,7 +1246,10 @@ function drawBoard(roomData) {
             const coordKey = `${r},${c}`;
             if (mainTrackMap.has(coordKey)) {
                 cell.classList.add("track-cell");
-                if (safeTrackIndexes.has(mainTrackMap.get(coordKey))) cell.classList.add("safe-cell");
+                const trackIndex = mainTrackMap.get(coordKey);
+                if (safeTrackIndexes.has(trackIndex)) cell.classList.add("safe-cell");
+                const startColors = { 0: "green", 13: "yellow", 26: "blue", 39: "red" };
+                if (startColors[trackIndex]) cell.classList.add("start-cell", "start-" + startColors[trackIndex]);
             } else if (homeTrackColors.has(coordKey)) {
                 cell.classList.add("track-cell", "home-cell", "home-" + homeTrackColors.get(coordKey));
             }
