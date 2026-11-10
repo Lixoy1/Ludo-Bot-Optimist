@@ -288,9 +288,9 @@ def render_tg_lobby_text(room):
         return f"🏆 **Игра окончена! ({title})**\n\n{res}"
 
 def room_webapp_url(code: str) -> str:
-    """Open the game directly from the group message as a Telegram Mini App."""
+    """Open the configured Main Mini App directly in the current Telegram chat."""
     normalized = normalize_room_code(code)
-    return f"{WEBAPP_URL}/room/{normalized}"
+    return f"https://t.me/Ludo_optimist_bot?startapp=join_{normalized}"
 
 def render_tg_lobby_kb(room):
     code = room["code"]
@@ -298,16 +298,18 @@ def render_tg_lobby_kb(room):
         return InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔄 Новая игра", callback_data=f"new_{room['game_mode']}")]
         ])
+    # URL deep links work in group chats. web_app InlineKeyboardButtons are
+    # private-chat-only, so use Telegram Main Mini App startapp links here.
     if room["game_mode"] == "TEAM" and room["status"] == "WAITING":
         return InlineKeyboardMarkup(inline_keyboard=[
             [
-                InlineKeyboardButton(text="🔴🟡 Команда A", web_app=WebAppInfo(url=room_webapp_url(code + "_A"))),
-                InlineKeyboardButton(text="🟢🔵 Команда B", web_app=WebAppInfo(url=room_webapp_url(code + "_B")))
+                InlineKeyboardButton(text="🔴🟡 Команда A", url=room_webapp_url(code + "_A")),
+                InlineKeyboardButton(text="🟢🔵 Команда B", url=room_webapp_url(code + "_B"))
             ]
         ])
     label = "🎲 Открыть игру" if room["status"] == "WAITING" else "🎮 Вернуться в игру"
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text=label, web_app=WebAppInfo(url=room_webapp_url(code)))]
+        [InlineKeyboardButton(text=label, url=room_webapp_url(code))]
     ])
 
 async def sync_tg_message(room):
