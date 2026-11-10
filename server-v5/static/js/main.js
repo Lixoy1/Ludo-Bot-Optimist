@@ -479,10 +479,12 @@ function connectWebSocket() {
         console.log("WS Closed:", event);
         stopHeartbeat();
         joinRequestPending = false;
-        if (event.code === 4403) {
-            console.warn("WS: Telegram authentication rejected; automatic reconnect disabled.");
+        if (event.code === 4403 || event.code === 4404) {
+            console.warn("WS: terminal room/auth error; automatic reconnect disabled.", event.code);
+            diceRequestPending = false;
             return;
         }
+        diceRequestPending = false;
         // Eksponencial backoff + jitter menen qayta qosılıwǵa urınıw.
         if (!reconnectTimer) {
             const backoff = Math.min(RECONNECT_MAX_MS, RECONNECT_BASE_MS * Math.pow(2, reconnectAttempts));
@@ -666,6 +668,7 @@ async function handleMessage(data) {
             }
             showChatNotification('', data.message || tr("error"), null, 4500);
         } else if (data.event === "CONNECTION_ESTABLISHED") {
+            diceRequestPending = false;
             // HÁMIŚE JOIN_GAME jiberemiz — server ózi sheshedi: bos WAITING bolsa
             // OYINSHI etip qosadı, bolmasa (tolı / PLAYING / FINISHED) KÓRIWSHI
             // (spectator) etip. BÚRÍN kóriwshi (PLAYING oyınǵa sırttan kirgen)
@@ -727,6 +730,8 @@ async function handleMessage(data) {
             setChatPermission(false);
             addMessageToUI({ system: true, text: tr("chat_vip_only") });
         } else if (data.event === "GAME_STARTED") {
+            diceRequestPending = false;
+            currentValidPieces = [];
             latestRoomState = data;
             joinedThisRoom = (data.players || []).some(p => String(p.user_id) === String(userId));
             joinRequestPending = false;
