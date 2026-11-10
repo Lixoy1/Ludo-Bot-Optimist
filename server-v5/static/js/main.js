@@ -1178,6 +1178,9 @@ function drawBoard(roomData) {
     board.innerHTML = buildBoardArt();
     const grid = document.createElement("div");
     grid.className = "board-grid-inner";
+    const safeTrackIndexes = new Set([0, 8, 13, 21, 26, 34, 39, 47]);
+    const mainTrackMap = new Map(MAIN_PATH.map((coord, index) => [coord.join(","), index]));
+    const homeTrackCells = new Set(Object.values(HOME_PATHS).flat().map(coord => coord.join(",")));
 
     for(let r=0; r<15; r++) {
         for(let c=0; c<15; c++) {
@@ -1185,6 +1188,13 @@ function drawBoard(roomData) {
             cell.className = "cell";
             cell.id = `cell-${r}-${c}`;
             cell.style.position = "relative";
+            const coordKey = `${r},${c}`;
+            if (mainTrackMap.has(coordKey)) {
+                cell.classList.add("track-cell");
+                if (safeTrackIndexes.has(mainTrackMap.get(coordKey))) cell.classList.add("safe-cell");
+            } else if (homeTrackCells.has(coordKey)) {
+                cell.classList.add("track-cell", "home-cell");
+            }
 
             let baseColor = null;
             if (r < 6 && c < 6) baseColor = "green";
@@ -1226,7 +1236,6 @@ function showDiceResult(color, value) {
 
     const diceContainer = document.getElementById("main-dice");
     if(diceContainer) {
-        diceContainer.classList.remove("active");
         diceContainer.classList.remove("pop");
         void diceContainer.offsetWidth;
         diceContainer.classList.add("pop");
