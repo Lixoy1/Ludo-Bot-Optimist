@@ -709,6 +709,10 @@ async function handleMessage(data) {
                 }
                 activeTurnColor = data.turn;
             }
+        } else if (data.event === "VOICE_SESSION") {
+            voiceSessionToken = String(data.token || "");
+        } else if (data.event === "VOICE_ERROR") {
+            showChatNotification("", data.message || "Ошибка голосового сообщения.", null, 5000);
         } else if (data.event === "VOICE") {
             Voice.onSignal(data);
         } else if (data.event === "VOICE_CONFIG") {
@@ -2112,6 +2116,35 @@ let voiceNoteStream = null;
 let voiceNoteChunks = [];
 let voiceNoteStartedAt = 0;
 let voiceNoteMaxTimer = null;
+let voiceSessionToken = "";
+
+async function uploadVoiceNote(blob, durationSeconds) {
+    if (!voiceSessionToken || !cleanRoomCode) {
+        showChatNotification("", "Игровая сессия обновляется. Попробуй отправить голосовое ещё раз.", null, 5000);
+        return;
+    }
+    const mime = (blob.type || "audio/webm").split(";")[0].toLowerCase();
+    if (!["audio/webm", "audio/ogg", "audio/mp4"].includes(mime)) {
+        showChatNotification("", "Формат записи не поддерживается. Попробуй обновить Telegram.", null, 5000);
+        return;
+    }
+    try {
+        const response = await fetch("/api/rooms/" + encodeURIComponent(cleanRoomCode) + "/voice", {
+            method: "POST",
+            headers: {
+                "content-type": mime,
+                "x-room-session": voiceSessionToken,
+                "x-voice-duration": String(durationSeconds)
+            },
+            body: blob
+        });
+        const data = await response.json().catch(() => ({}));
+        if (!response.ok) throw new Error(data.detail || data.message || "Не удалось отправить голосовое.");
+    } catch (error) {
+        showChatNotification("", error instanceof Error ? error.message : "Не удалось отправить голосовое.", null, 6000);
+        console.warn("[VOICE_UPLOAD_ERROR]", error);
+    }
+}
 
 async function toggleVoiceNoteRecording() {
     const button = document.getElementById("voice-note-btn");
@@ -2164,18 +2197,7 @@ async function toggleVoiceNoteRecording() {
                 showChatNotification("", "Запись слишком большая. Запишите сообщение короче.", null, 5000);
                 return;
             }
-            const reader = new FileReader();
-            reader.onload = () => {
-                const encoded = String(reader.result || "").split(",")[1] || "";
-                const mime = (blob.type || "audio/webm").split(";")[0].toLowerCase();
-                if (!encoded || !ws || ws.readyState !== WebSocket.OPEN) {
-                    showChatNotification("", "Соединение потеряно. Голосовое сообщение не отправлено.", null, 5000);
-                    return;
-                }
-                ws.send(JSON.stringify({ action: "SEND_VOICE_MESSAGE", audio_data: encoded, mime_type: mime, duration_ms: duration }));
-            };
-            reader.onerror = () => showChatNotification("", "Не удалось подготовить аудиозапись.", null, 4500);
-            reader.readAsDataURL(blob);
+            void uploadVoiceNote(blob, Math.max(1, Math.min(30, Math.ceil(duration / 1000))));
         };
         voiceNoteRecorder.start(250);
         if (button) {
@@ -2233,9 +2255,48 @@ function addMessageToUI(msg) {
 
     msgDiv.className = `chat-msg ${isMe ? 'my-msg' : 'other-msg'}`;
     const author = isMe ? '' : `<small style="color: ${displayColor};">${escapeHtml(msg.name)}</small>`;
-    if (msg.audio_data) {
+    if (msg.voice_id && /^[a-f0-9]{32}$/.test(msg.voice_id)) {
         const mime = ["audio/webm", "audio/ogg", "audio/mp4"].includes(msg.mime_type) ? msg.mime_type : "audio/webm";
-        msgDiv.innerHTML = `${author}<div class="voice-message-caption">🎙️ ${tr("voice_note")}</div>`;
+        msgDiv.innerHTML = `${author}<div class="voice-message-caption">🎙️ Голосовое сообщение · ${Math.max(1, Number(msg.duration_seconds) || 1)} сек.</div>`;
+        const player = document.createElement("audio");
+        player.className = "voice-message-audio";
+        player.controls = true;
+        player.preload = "none";
+        player.addEventListener("play", () => {
+            document.querySelectorAll(".voice-message-audio").forEach(other => {
+                if (other !== player) other.pause();
+            });
+        });
+        player.addEventListener("error", () => showChatNotification("", "Не удалось воспроизвести голосовое. Возможно, оно уже удалено.", null, 5000));
+        const loadVoice = async () => {
+            if (!voiceSessionToken) {
+                showChatNotification("", "Переподключаем голосовой канал. Подожди секунду.", null, 3500);
+                return;
+            }
+            try {
+                const response = await fetch("/api/rooms/" + encodeURIComponent(cleanRoomCode) + "/voice/" + encodeURIComponent(msg.voice_id), {
+                    headers: { "x-room-session": voiceSessionToken }
+                });
+                if (!response.ok) throw new Error("Голосовое сообщение недоступно.");
+                const blob = await response.blob();
+                player.src = URL.createObjectURL(blob);
+                await player.play();
+            } catch (error) {
+                showChatNotification("", error instanceof Error ? error.message : "Не удалось загрузить голосовое.", null, 5000);
+            }
+        };
+        player.addEventListener("click", () => { if (!player.src) void loadVoice(); }, { once: true });
+        player.addEventListener("play", () => {
+            if (!player.src) {
+                player.pause();
+                void loadVoice();
+            }
+        }, { once: true });
+        msgDiv.appendChild(player);
+    } else if (msg.audio_data) {
+        // Backward compatibility for voice messages sent by older clients.
+        const mime = ["audio/webm", "audio/ogg", "audio/mp4"].includes(msg.mime_type) ? msg.mime_type : "audio/webm";
+        msgDiv.innerHTML = `${author}<div class="voice-message-caption">🎙️ Голосовое сообщение</div>`;
         const player = document.createElement("audio");
         player.className = "voice-message-audio";
         player.controls = true;
