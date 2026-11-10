@@ -1549,7 +1549,13 @@ function updateTurnUI(active_color, active_user_id, players) {
         mainDice.style.setProperty("--pc", `var(--${active_color})`);
         const activePlayer = (players || []).find(p => p.color === active_color);
         mainDice.dataset.skin = (activePlayer && activePlayer.skin) || "optimist";
-        const isMyTurn = String(active_user_id) === String(userId) && (players || []).some(p => String(p.user_id) === String(userId) && !p.finished && !p.left);
+        const me = (players || []).find(p => String(p.user_id) === String(userId));
+        const teammate = me && latestRoomState && latestRoomState.game_mode === "TEAM"
+            ? (players || []).find(p => p.team === me.team && p.color !== me.color && !p.finished && !p.left)
+            : null;
+        const mayControlTeamMate = !!(me && me.finished && teammate);
+        const isMyTurn = String(active_user_id) === String(userId)
+            && !!me && !me.left && (!me.finished || mayControlTeamMate);
         mainDice.classList.toggle("active", isMyTurn);
         mainDice.style.pointerEvents = isMyTurn ? "auto" : "none";
         mainDice.style.opacity = isMyTurn ? "1" : "0.78";
@@ -1747,7 +1753,7 @@ function drawPiecesStatic(board_state) {
             // TEAM mode logic for piece interaction
             let canClickThisPiece = (p.color === myColor);
             if (latestRoomState && latestRoomState.game_mode === "TEAM") {
-                const me = latestRoomState.players.find(pl => pl.user_id === userId);
+                const me = latestRoomState.players.find(pl => String(pl.user_id) === String(userId));
                 if (me && (me.finished || me.rank !== null)) {
                     // I have finished, can move teammate's pieces
                     const teammate = latestRoomState.players.find(pl => pl.team === me.team && pl.color !== me.color);
@@ -1986,8 +1992,13 @@ function highlightValidPieces(dice_color, dice_value, board_state) {
 }
 
 function movePiece(piece_id) {
-    const me = (latestRoomState?.players || []).find(p => String(p.user_id) === String(userId));
-    if (!me || me.is_bot || me.finished || me.left || !myColor || String(me.color) !== String(activeTurnColor)) return;
+    const players = latestRoomState?.players || [];
+    const me = players.find(p => String(p.user_id) === String(userId));
+    const teammate = me && latestRoomState?.game_mode === "TEAM"
+        ? players.find(p => p.team === me.team && p.color !== me.color && !p.finished && !p.left)
+        : null;
+    const mayControlTeamMate = !!(me && me.finished && teammate);
+    if (!me || me.is_bot || me.left || (me.finished && !mayControlTeamMate) || !myColor || String(me.color) !== String(activeTurnColor)) return;
     if (autoMoveTimeout) {
         clearTimeout(autoMoveTimeout);
         autoMoveTimeout = null;
