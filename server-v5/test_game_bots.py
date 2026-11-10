@@ -95,6 +95,7 @@ class BotRoomTests(unittest.TestCase):
                     sleep=fast_sleep, current_task=asyncio.current_task
                 )),
             ):
+                await server.auto_roll_until_six(room, "green")
             self.assertEqual(room["dice"], 6)
             self.assertTrue(room["players"][0]["opening_roll_completed"])
             self.assertEqual(len(armed), 1)
