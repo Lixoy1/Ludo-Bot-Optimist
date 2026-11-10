@@ -14,7 +14,8 @@
             const startParam = window.Telegram?.WebApp?.initDataUnsafe?.start_param ||
                 new URLSearchParams(window.location.search).get("tgWebAppStartParam") || "";
             const fromStart = String(startParam).startsWith("join_") ? String(startParam).slice(5).toUpperCase() : "";
-            const fromPath = window.location.pathname.match(/^\\/room\\/([A-Z0-9_]+)/i)?.[1] || "";
+            const routeParts = window.location.pathname.split("/").filter(Boolean);
+            const fromPath = routeParts[0] === "room" ? (routeParts[1] || "") : "";
             return fromStart || fromPath.toUpperCase() || "";
         })();
         const LANG = (() => {
