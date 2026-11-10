@@ -402,6 +402,43 @@ async def record_match_results(room):
     await save_room_db(room)
     return changes
 
+
+def get_room_member(room, user_id):
+    """Return a seated player or an authenticated spectator, never a bot socket."""
+    uid = str(user_id)
+    seated = next((
+        p for p in room.get("players", [])
+        if str(p.get("user_id")) == uid and not p.get("left")
+    ), None)
+    if seated:
+        return seated
+    return room.get("spectators", {}).get(uid)
+
+
+def can_control_game(room, user_id, websocket):
+    """Only the user's live seated socket may control dice or pieces."""
+    uid = str(user_id)
+    player = next((
+        p for p in room.get("players", [])
+        if str(p.get("user_id")) == uid and not p.get("left")
+    ), None)
+    if not player or player.get("is_bot"):
+        return None
+    if room.get("sockets", {}).get(uid) is not websocket:
+        return None
+    if player.get("finished"):
+        if room.get("game_mode") != "TEAM":
+            return None
+        teammate = next((
+            p for p in room.get("players", [])
+            if p.get("team") == player.get("team")
+            and p.get("color") != player.get("color")
+            and not p.get("finished") and not p.get("left")
+        ), None)
+        if not teammate:
+            return None
+    return player
+
 def arm_turn_timer(room):
     room["turn_gen"] += 1
     gen = room["turn_gen"]
@@ -1100,10 +1137,7 @@ def _voice_session(request: Request, room_code: str):
     user_id = str(session["user_id"])
     if user_id not in room.get("sockets", {}):
         raise HTTPException(status_code=403, detail="Голосовой доступ доступен только подключённым к комнате.")
-    member = next((
-        p for p in room.get("players", [])
-        if str(p.get("user_id")) == user_id and not p.get("left")
-    ), None) or room.get("spectators", {}).get(user_id)
+    member = get_room_member(room, user_id)
     if not member:
         raise HTTPException(status_code=403, detail="Не удалось определить участника комнаты.")
     return session, room, member
@@ -1567,19 +1601,10 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
 
             elif act == "ROLL_DICE":
                 async with ROOM_LOCKS[room["code"]]:
-                    me = next((p for p in room["players"] if str(p["user_id"]) == str(uid)), None)
-                    if (
-                        not me or me.get("is_bot") or me.get("left")
-                        or (me.get("finished") and room.get("game_mode") != "TEAM")
-                        or room.get("sockets", {}).get(uid) is not websocket
-                    ):
-                        await websocket.send_json({"event": "DICE_REJECTED", "message": "Только участник партии может бросать кубик."})
+                    me = can_control_game(room, uid, websocket)
+                    if not me:
+                        await websocket.send_json({"event": "DICE_REJECTED", "message": "Только активный участник партии может бросать кубик."})
                         continue
-                    if me.get("finished") and room.get("game_mode") == "TEAM":
-                        teammate = next((p for p in room["players"] if p.get("team") == me.get("team") and p.get("color") != me.get("color")), None)
-                        if not teammate or teammate.get("finished") or teammate.get("left"):
-                            await websocket.send_json({"event": "DICE_REJECTED", "message": "Ваша команда уже завершила игру."})
-                            continue
                     if me["color"] != room["turn"]:
                         await websocket.send_json({"event": "DICE_REJECTED", "message": "Сейчас ход другого игрока."})
                         continue
@@ -1624,19 +1649,14 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
 
             elif act == "MOVE_PIECE":
                 async with ROOM_LOCKS[room["code"]]:
-                    me = next((p for p in room["players"] if p["user_id"] == uid), None)
+                    me = can_control_game(room, uid, websocket)
                     try:
                         pid = int(data.get("piece_id", -1))
                     except (TypeError, ValueError, OverflowError):
                         await websocket.send_json({"event": "GAME_ERROR", "message": "Invalid piece ID"})
                         continue
                     val = room["dice"]
-                    if (
-                        not me or me.get("is_bot") or me.get("left")
-                        or (me.get("finished") and room.get("game_mode") != "TEAM")
-                        or room.get("sockets", {}).get(uid) is not websocket
-                        or me["color"] != room["turn"] or val is None
-                    ):
+                    if not me or me["color"] != room["turn"] or val is None:
                         await websocket.send_json({"event": "MOVE_REJECTED", "message": "Только участник на своём ходу может двигать фишки."})
                         continue
 
@@ -1722,9 +1742,7 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
             elif act == "SEND_MESSAGE":
                 if not uid or room.get("sockets", {}).get(uid) is not websocket:
                     continue
-                sender = next((p for p in room["players"] if str(p["user_id"]) == str(uid)), None)
-                if sender is None:
-                    sender = room.get("spectators", {}).get(uid)
+                sender = get_room_member(room, uid)
                 if sender:
                     await broadcast(room, {
                         "event": "NEW_MESSAGE",
