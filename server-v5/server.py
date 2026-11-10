@@ -320,7 +320,7 @@ def fill_bot_seats(room):
             "user_id": bot_id, "name": name, "photo_url": "", "color": color,
             "team": "A" if color in ("red", "yellow") else "B",
             "skin": skin, "is_bot": True, "vip": False,
-            "missed_turns": 0, "rank": None, "left": False, "finished": False
+            "missed_turns": 0, "rank": None, "left": False, "finished": False, "opening_roll_completed": True
         })
         used.add(color)
         seat += 1
@@ -383,7 +383,7 @@ async def schedule_turn_actor(room):
         room["actor_task"] = asyncio.create_task(run_bot_turn(room))
         return
     positions = room["board_state"].get(player["color"], [])
-    if room.get("dice") is None and positions and all(pos == -1 for pos in positions):
+    if room.get("dice") is None and not player.get("opening_roll_completed") and positions and all(pos == -1 for pos in positions):
         room["actor_task"] = asyncio.create_task(auto_roll_until_six(room, player["color"]))
     else:
         arm_turn_timer(room)
@@ -398,12 +398,13 @@ async def auto_roll_until_six(room, color):
                 if room.get("status") != "PLAYING" or room.get("turn") != color or room.get("dice") is not None:
                     return
                 player = next((p for p in room["players"] if p["color"] == color), None)
-                if not player or player.get("is_bot") or any(pos != -1 for pos in room["board_state"].get(color, [])):
+                if not player or player.get("is_bot") or player.get("opening_roll_completed") or any(pos != -1 for pos in room["board_state"].get(color, [])):
                     return
                 value = random.randint(1, 6)
                 room["consecutive_sixes"] = room.get("consecutive_sixes", 0) + 1 if value == 6 else 0
                 completed = value == 6
                 if completed:
+                    player["opening_roll_completed"] = True
                     room["dice"] = 6
                     arm_turn_timer(room)
                 await broadcast(room, {
@@ -416,6 +417,9 @@ async def auto_roll_until_six(room, color):
                     return
         async with ROOM_LOCKS[room["code"]]:
             if room.get("status") == "PLAYING" and room.get("turn") == color and room.get("dice") is None:
+                player = next((p for p in room["players"] if p["color"] == color), None)
+                if player:
+                    player["opening_roll_completed"] = True
                 arm_turn_timer(room)
                 await broadcast(room, {"event": "GAME_ERROR", "message": "Автозапуск остановлен. Бросьте кубик вручную."})
     finally:
@@ -889,6 +893,7 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                         existing["name"] = u["name"]
                         existing["photo_url"] = u["photo_url"]
                         existing["skin"] = u["skin"]
+                        existing.setdefault("opening_roll_completed", False)
                         existing["left"] = False
                     elif room["status"] == "WAITING" and len(room["players"]) < 4:
                         taken = {p["color"] for p in room["players"]}
@@ -907,6 +912,7 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                             "color": color,
                             "team": team or ("A" if color in ("red", "yellow") else "B"),
                             "skin": u["skin"],
+                            "opening_roll_completed": False,
                             "vip": True,  # Оставлено true, чтобы UI не блокировал микрофон в клиенте
                             "missed_turns": 0,
                             "rank": None,
@@ -1026,6 +1032,13 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                     me = next((p for p in room["players"] if p["user_id"] == uid), None)
                     if not me or me["color"] != room["turn"] or room["dice"] is not None:
                         continue
+                    # A manual tap can take over from the opening auto-roll helper.
+                    if not me.get("opening_roll_completed"):
+                        me["opening_roll_completed"] = True
+                        opening_task = room.get("actor_task")
+                        if opening_task and opening_task is not asyncio.current_task() and not opening_task.done():
+                            opening_task.cancel()
+                        room["actor_task"] = None
                     val = random.randint(1, 6)
                     if val == 6:
                         room["consecutive_sixes"] = room.get("consecutive_sixes", 0) + 1
