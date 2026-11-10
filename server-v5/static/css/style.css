@@ -1572,12 +1572,14 @@ svg { display: block; flex-shrink: 0; }
     flex: 0 0 44px; width: 44px; height: 44px; border: 1px solid var(--line-strong);
     border-radius: 50%; color: var(--text); background: rgba(255,255,255,.08);
     display: grid; place-items: center; font-size: 20px; cursor: pointer;
+    touch-action: none; user-select: none; -webkit-user-select: none; -webkit-touch-callout: none;
 }
 .voice-note-btn.is-recording { color: #fff; background: #d9364d; border-color: #ff7a8b; animation: voice-record-pulse 1s infinite alternate; }
+.voice-note-btn:active { transform: scale(.96); }
 @keyframes voice-record-pulse { from { box-shadow: 0 0 0 0 rgba(217,54,77,.25); } to { box-shadow: 0 0 0 7px rgba(217,54,77,.2); } }
 .voice-message-audio { display: block; width: min(260px, 100%); height: 38px; margin-top: 8px; }
 .voice-message-caption { display: flex; align-items: center; gap: 6px; font-size: 13px; font-weight: 700; }
-.voice-player { display: flex; align-items: center; gap: 9px; width: min(260px, 100%); min-width: 190px; margin-top: 8px; }
+.voice-player { display: flex; align-items: center; gap: 9px; width: min(260px, 100%); min-width: 0; max-width: 100%; margin-top: 8px; }
 .voice-play { width: 34px; height: 34px; flex: 0 0 34px; border: 1px solid var(--line-strong); border-radius: 50%; color: var(--text); background: rgba(255,255,255,.1); font-weight: 800; cursor: pointer; }
 .voice-play:disabled { opacity: .55; cursor: wait; }
 .voice-track { height: 6px; flex: 1; min-width: 50px; overflow: hidden; border-radius: 99px; background: rgba(255,255,255,.2); cursor: pointer; }
