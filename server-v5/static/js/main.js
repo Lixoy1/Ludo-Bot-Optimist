@@ -2206,18 +2206,26 @@ async function startVoiceNoteRecording() {
     }
 
     try {
-        const stream = await navigator.mediaDevices.getUserMedia({
-            audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
-        });
+        // Telegram Android WebView can show its native permission dialog on every
+        // getUserMedia call. Keep one approved stream for this Mini App page session.
+        let stream = voiceNoteStream;
+        if (!stream || !stream.getAudioTracks().some(track => track.readyState === "live")) {
+            stream = await navigator.mediaDevices.getUserMedia({
+                audio: { echoCancellation: true, noiseSuppression: true, autoGainControl: true }
+            });
+            voiceNoteStream = stream;
+            stream.getAudioTracks().forEach(track => { track.enabled = false; });
+        }
 
         // The user may release while Android's first-time permission prompt is open.
         if (!voicePressActive) {
-            stream.getTracks().forEach(track => track.stop());
+            stream.getAudioTracks().forEach(track => { track.enabled = false; });
             voiceStartPending = false;
             resetVoiceNoteButton();
             return;
         }
 
+        stream.getAudioTracks().forEach(track => { track.enabled = true; });
         voiceNoteStream = stream;
         const formats = ["audio/webm;codecs=opus", "audio/ogg;codecs=opus", "audio/mp4"];
         const selectedFormat = formats.find(format => MediaRecorder.isTypeSupported?.(format));
@@ -2242,8 +2250,8 @@ async function startVoiceNoteRecording() {
             if (voiceNoteMaxTimer) clearTimeout(voiceNoteMaxTimer);
             voiceNoteMaxTimer = null;
             if (voiceNoteRecorder === recorder) voiceNoteRecorder = null;
-            if (voiceNoteStream === stream) voiceNoteStream = null;
-            stream.getTracks().forEach(track => track.stop());
+            // Keep the approved stream cached; mute its audio track between clips.
+            stream.getAudioTracks().forEach(track => { track.enabled = false; });
             voicePressActive = false;
             voicePressPointerId = null;
             resetVoiceNoteButton();
@@ -2288,8 +2296,10 @@ async function startVoiceNoteRecording() {
         // If the pointer was released while the recorder was being initialized, send now.
         if (!voicePressActive && recorder.state === "recording") recorder.stop();
     } catch (error) {
-        if (voiceNoteStream) voiceNoteStream.getTracks().forEach(track => track.stop());
-        voiceNoteStream = null;
+        // Keep a successfully granted stream cached even if recorder setup failed.
+        if (voiceNoteStream) {
+            voiceNoteStream.getAudioTracks().forEach(track => { track.enabled = false; });
+        }
         voiceNoteRecorder = null;
         voiceNoteChunks = [];
         voiceStartPending = false;
@@ -2350,6 +2360,20 @@ function bindVoiceNoteButton() {
 }
 
 bindVoiceNoteButton();
+
+// Release the cached microphone stream when the Mini App page is actually closed.
+window.addEventListener("pagehide", () => {
+    if (voiceNoteMaxTimer) clearTimeout(voiceNoteMaxTimer);
+    voiceNoteMaxTimer = null;
+    if (voiceNoteRecorder && voiceNoteRecorder.state === "recording") {
+        try { voiceNoteRecorder.stop(); } catch (_) {}
+    }
+    if (voiceNoteStream) voiceNoteStream.getTracks().forEach(track => track.stop());
+    voiceNoteStream = null;
+    voiceNoteRecorder = null;
+    voicePressActive = false;
+    voicePressPointerId = null;
+});
 
 function handleChatKey(event) {
     if (event.key === 'Enter') sendMessage();
