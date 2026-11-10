@@ -37,6 +37,13 @@ jobs:
           grep -q 't.me/Ludo_optimist_bot?startapp=join_' server-v5/server.py
           grep -q 'url=room_webapp_url(code)' server-v5/server.py
           grep -q 'def render_tg_lobby_kb' server-v5/server.py
+          grep -q 'def upload_room_voice' server-v5/server.py
+          grep -q 'def get_room_voice' server-v5/server.py
+          grep -q 'VOICE_SESSIONS\[voice_session_token\]' server-v5/server.py
+          grep -q 'data.event === "VOICE_SESSION"' server-v5/static/js/main.js
+          grep -q 'function createLudoVoicePlayer' server-v5/static/js/main.js
+          grep -q 'audioBitsPerSecond: 32_000' server-v5/static/js/main.js
+          grep -q 'void showCharacterSelection()' server-v5/static/js/main.js
       - name: Check browser JavaScript syntax
         run: |
           node --check server-v5/static/js/main.js
