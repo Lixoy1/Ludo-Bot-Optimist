@@ -55,6 +55,9 @@ jobs:
           ! grep -q 'onclick="toggleVoiceNoteRecording()"' server-v5/index.html
           grep -q 'function createLudoVoicePlayer' server-v5/static/js/main.js
           grep -q 'void showCharacterSelection()' server-v5/static/js/main.js
+          grep -q 'clearJoinRequestTimeout' server-v5/static/js/main.js
+          grep -q '}, 10000);' server-v5/static/js/main.js
+          grep -q 'asyncio.create_task(sync_tg_message(room))' server-v5/server.py
       - name: Check browser JavaScript syntax
         run: |
           node --check server-v5/static/js/main.js
