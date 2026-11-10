@@ -1779,3 +1779,64 @@ svg { display: block; flex-shrink: 0; }
 .lobby-start-bots:disabled{opacity:.62;cursor:wait}
 .lobby-start-note{text-align:center;color:#8992aa;font-size:11px;margin:3px 0 15px}
 @media(max-width:360px){.lobby-countdown-panel{padding:12px}.lobby-countdown-hint{font-size:11px;max-width:112px}#lobby-countdown{font-size:27px}.lobby-start-bots{font-size:13px}}
+
+
+/* 2026 readability pass: reduce the background artwork and make the route cells
+   read as separate white tiles instead of glowing into the board texture. */
+.board-art {
+    filter: brightness(.76) saturate(.68) contrast(.98);
+}
+.cell.track-cell {
+    background: rgba(248, 250, 253, .96);
+    box-shadow: inset 0 0 0 1px rgba(35, 45, 62, .20), 0 1px 1px rgba(0, 0, 0, .16);
+    border-radius: 2px;
+}
+.cell.track-cell.safe-cell::after {
+    content: "★";
+    position: absolute;
+    inset: 0;
+    display: grid;
+    place-items: center;
+    color: #B58A28;
+    font-size: clamp(8px, 2.2vw, 13px);
+    line-height: 1;
+    text-shadow: 0 1px 0 rgba(255,255,255,.9);
+    pointer-events: none;
+    z-index: 2;
+}
+
+/* Dice: gold by default; clear red outline for the local player's active turn. */
+.dice-container { border-color: #E8BD54; }
+.dice-container.active {
+    border: 2px solid #FF4058;
+    box-shadow: 0 0 0 2px rgba(255, 64, 88, .20), 0 0 16px rgba(255, 64, 88, .30);
+}
+.dice-container.active::after {
+    border-color: #FF4058;
+}
+
+/* Move highlights must remain visible on every player colour, especially yellow. */
+.piece.highlight {
+    filter: drop-shadow(0 0 5px rgba(0, 225, 255, .9));
+}
+.piece.highlight::before {
+    border: 3px solid #F8FEFF;
+    border-style: solid;
+    box-shadow:
+        0 0 0 3px rgba(0, 218, 255, .98),
+        0 0 13px 5px rgba(0, 218, 255, .72),
+        inset 0 0 0 1px rgba(10, 40, 55, .35);
+    animation: valid-piece-pulse 0.8s ease-in-out infinite alternate;
+}
+.piece.yellow.highlight::before {
+    border-color: #FFFFFF;
+    box-shadow:
+        0 0 0 3px #00E5FF,
+        0 0 0 6px rgba(17, 27, 46, .94),
+        0 0 17px 7px rgba(0, 229, 255, .95),
+        inset 0 0 0 1px #FFFFFF;
+}
+@keyframes valid-piece-pulse {
+    from { transform: translate(-50%, -50%) scale(.94); opacity: .88; }
+    to   { transform: translate(-50%, -50%) scale(1.09); opacity: 1; }
+}
