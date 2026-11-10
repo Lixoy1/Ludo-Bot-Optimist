@@ -239,6 +239,10 @@ def render_tg_lobby_text(room):
         res = "\n".join([f"#{p.get('rank', '×')} {COLOR_EMOJI[p['color']]} {p['name']}" for p in sorted_p])
         return f"🏆 **Игра окончена! ({title})**\n\n{res}"
 
+def room_webapp_url(code: str) -> str:
+    """Direct room URL from the original working ZIP; server injects the room ID."""
+    return f"{WEBAPP_URL}/room/{normalize_room_code(code)}"
+
 def render_tg_lobby_kb(room):
     code = room["code"]
     if room["status"] == "FINISHED":
@@ -251,7 +255,7 @@ def render_tg_lobby_kb(room):
             [InlineKeyboardButton(text="▶️ Старт", callback_data=f"start_{code}")]
         ])
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎮 Войти в игру", url=f"https://t.me/Ludo_optimist_bot?startapp={code}")],
+        [InlineKeyboardButton(text="🎮 Войти в игру", url=room_webapp_url(code))],
         [InlineKeyboardButton(text="🔄 Новая игра", callback_data=f"new_{room['game_mode']}")]
     ])
 
@@ -829,7 +833,7 @@ async def cb_start_game(call: types.CallbackQuery):
     enter_kb = InlineKeyboardMarkup(inline_keyboard=[[
         InlineKeyboardButton(
             text="🎮 Войти в игру",
-            url=f"https://t.me/Ludo_optimist_bot?startapp={code}"
+            url=room_webapp_url(code)
         )
     ]])
     try:
