@@ -192,15 +192,19 @@ class BotRoomTests(unittest.TestCase):
         self.assertIn('window.__LUDO_SERVER_ROOM_CODE__ = "";', page)
 
 
-    def test_waiting_group_keyboard_keeps_join_and_start_buttons(self):
+    def test_waiting_group_keyboard_routes_join_through_authenticated_private_webapp(self):
         room = self.make_room([])
+        room["code"] = "ABC123"
         keyboard = server.render_tg_lobby_kb(room)
         buttons = [button for row in keyboard.inline_keyboard for button in row]
-        callbacks = [button.callback_data for button in buttons]
-        self.assertIn(f"join_{room['code']}", callbacks)
-        self.assertIn(f"start_{room['code']}", callbacks)
+        join = buttons[0]
+        start = buttons[1]
+        self.assertEqual(join.text, "🎲 Присоединиться")
+        self.assertEqual(join.url, "https://t.me/Ludo_optimist_bot?start=join_ABC123")
+        self.assertEqual(start.callback_data, "start_ABC123")
+        self.assertIsNone(join.callback_data)
 
-    def test_started_group_button_uses_direct_room_path_from_original_zip(self):
+    def test_started_group_button_routes_through_authenticated_private_webapp(self):
         room = self.make_room([{
             "user_id": "human-1", "name": "Player", "color": "green",
             "team": "B", "skin": "optimist", "finished": False,
@@ -209,16 +213,9 @@ class BotRoomTests(unittest.TestCase):
         room["status"] = "PLAYING"
         keyboard = server.render_tg_lobby_kb(room)
         button = keyboard.inline_keyboard[0][0]
-        self.assertEqual(button.url, server.room_webapp_url(room["code"]))
-        self.assertTrue(button.url.endswith(f"/room/{room['code']}"))
+        self.assertEqual(button.url, "https://t.me/Ludo_optimist_bot?start=join_ABC123")
         self.assertNotIn("startapp", button.url)
-        self.assertNotIn("t.me/", button.url)
-
-    def test_room_webapp_url_embeds_code_in_rendered_page(self):
-        url = server.room_webapp_url("ABC123")
-        self.assertTrue(url.endswith("/room/ABC123"))
-        page = server.render_game_page_html("ABC123")
-        self.assertIn('window.__LUDO_SERVER_ROOM_CODE__ = "ABC123";', page)
+        self.assertIn("payload.startswith(\"join_\")", server.send_start_menu.__code__.co_consts)
 
 if __name__ == "__main__":
     unittest.main()

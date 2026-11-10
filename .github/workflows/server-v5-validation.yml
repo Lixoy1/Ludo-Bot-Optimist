@@ -35,6 +35,8 @@ jobs:
           grep -q 'bootRoomConnection' server-v5/static/js/main.js
           grep -q 'def room_webapp_url' server-v5/server.py
           ! grep -q 't.me/Ludo_optimist_bot?startapp=' server-v5/server.py
+          grep -q 'start=join_' server-v5/server.py
+          grep -q 'web_app=WebAppInfo(url=join_url)' server-v5/server.py
       - name: Check browser JavaScript syntax
         run: |
           node --check server-v5/static/js/main.js

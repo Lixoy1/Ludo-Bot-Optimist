@@ -240,8 +240,9 @@ def render_tg_lobby_text(room):
         return f"🏆 **Игра окончена! ({title})**\n\n{res}"
 
 def room_webapp_url(code: str) -> str:
-    """Direct room URL from the original working ZIP; server injects the room ID."""
-    return f"{WEBAPP_URL}/room/{normalize_room_code(code)}"
+    """Open the bot's private chat first, then launch the room as an authenticated Telegram Mini App."""
+    normalized = normalize_room_code(code)
+    return f"https://t.me/Ludo_optimist_bot?start=join_{normalized}"
 
 def render_tg_lobby_kb(room):
     code = room["code"]
@@ -251,7 +252,7 @@ def render_tg_lobby_kb(room):
         ])
     if room["status"] == "WAITING":
         return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🎲 Присоединиться", callback_data=f"join_{code}")],
+            [InlineKeyboardButton(text="🎲 Присоединиться", url=room_webapp_url(code))],
             [InlineKeyboardButton(text="▶️ Старт", callback_data=f"start_{code}")]
         ])
     return InlineKeyboardMarkup(inline_keyboard=[
