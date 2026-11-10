@@ -1865,3 +1865,86 @@ svg { display: block; flex-shrink: 0; }
 #ludo-board .cell.home-yellow { background:rgba(224,184,75,.32); box-shadow:inset 0 0 0 1px rgba(166,132,42,.55); }
 #ludo-board .cell.home-blue { background:rgba(75,143,205,.30); box-shadow:inset 0 0 0 1px rgba(55,108,159,.55); }
 #ludo-board .cell.home-red { background:rgba(202,91,83,.30); box-shadow:inset 0 0 0 1px rgba(157,67,62,.55); }
+
+
+/* Full classic Ludo board: square 15x15 grid, pastel bases and crisp tile edges. */
+#ludo-board[data-theme="classic"] {
+    background:#F4F1E9;
+    border:1px solid #B8B5AC;
+    border-radius:10px;
+    box-shadow:0 8px 24px rgba(12,18,28,.16), inset 0 0 0 3px rgba(255,255,255,.72);
+}
+#ludo-board[data-theme="classic"] .board-art { filter:none !important; }
+#ludo-board[data-theme="classic"] .board-grid-inner {
+    top:4.333% !important;
+    left:4.333% !important;
+    width:91.334% !important;
+    height:91.334% !important;
+}
+#ludo-board[data-theme="classic"] .cell.track-cell {
+    background:#FCFBF7;
+    border:1px solid #AAA9A2;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.52);
+    border-radius:0;
+}
+#ludo-board[data-theme="classic"] .cell.home-green {
+    background:#AFCFB7;
+    border:1px solid #88B294;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.28);
+}
+#ludo-board[data-theme="classic"] .cell.home-yellow {
+    background:#E9D89F;
+    border:1px solid #CFB968;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.28);
+}
+#ludo-board[data-theme="classic"] .cell.home-blue {
+    background:#B6CDE3;
+    border:1px solid #8EACC9;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.28);
+}
+#ludo-board[data-theme="classic"] .cell.home-red {
+    background:#E4B9B5;
+    border:1px solid #C9918B;
+    box-shadow:inset 0 0 0 1px rgba(255,255,255,.28);
+}
+#ludo-board[data-theme="classic"] .cell.track-cell.safe-cell::after {
+    color:#A68B4C;
+    font-size:clamp(9px,2.4vw,14px);
+    text-shadow:0 1px 0 #fff;
+}
+#ludo-board[data-theme="classic"] .piece::before {
+    box-shadow:0 1px 4px rgba(0,0,0,.22);
+}
+#ludo-board[data-theme="classic"] .piece.highlight::before {
+    border-color:#fff;
+    box-shadow:0 0 0 3px #167EAA,0 0 9px 3px rgba(22,126,170,.45);
+}
+
+/* In-game board style switch, always available below the dice. */
+#board-style-live {
+    order:8;
+    grid-column:1 / -1;
+    justify-self:center;
+    display:inline-flex;
+    align-items:center;
+    justify-content:center;
+    gap:9px;
+    min-height:42px;
+    margin:3px auto 8px;
+    padding:0 17px;
+    border:1px solid rgba(195,185,155,.55);
+    border-radius:999px;
+    background:linear-gradient(180deg,rgba(255,255,255,.12),rgba(255,255,255,.045));
+    color:var(--text);
+    font:700 12px/1 inherit;
+    letter-spacing:.35px;
+    box-shadow:0 4px 14px rgba(0,0,0,.12);
+    cursor:pointer;
+}
+#board-style-live::before { content:"◐"; font-size:17px; color:#D8BD77; }
+#board-style-live:active { transform:scale(.97); }
+#controls { order:9; }
+#ludo-board[data-theme="classic"] ~ #board-style-live { border-color:#B8B5AC; color:#E8E5DC; }
+@media(max-width:360px) {
+    #board-style-live { min-height:38px; margin:0 auto 5px; font-size:11px; }
+}
