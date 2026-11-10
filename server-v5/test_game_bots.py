@@ -200,9 +200,9 @@ class BotRoomTests(unittest.TestCase):
         join = buttons[0]
         start = buttons[1]
         self.assertEqual(join.text, "🎲 Присоединиться")
-        self.assertEqual(join.url, "https://t.me/Ludo_optimist_bot?start=join_ABC123")
+        self.assertEqual(join.callback_data, "join_ABC123")
+        self.assertIsNone(join.url)
         self.assertEqual(start.callback_data, "start_ABC123")
-        self.assertIsNone(join.callback_data)
 
     def test_started_group_button_routes_through_authenticated_private_webapp(self):
         room = self.make_room([{

@@ -252,7 +252,7 @@ def render_tg_lobby_kb(room):
         ])
     if room["status"] == "WAITING":
         return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🎲 Присоединиться", url=room_webapp_url(code))],
+            [InlineKeyboardButton(text="🎲 Присоединиться", callback_data=f"join_{code}")],
             [InlineKeyboardButton(text="▶️ Старт", callback_data=f"start_{code}")]
         ])
     return InlineKeyboardMarkup(inline_keyboard=[

@@ -1485,11 +1485,22 @@ svg { display: block; flex-shrink: 0; }
 /* Единый центральный кубик внизу экрана */
 .center-dice-dock {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
-    margin-top: 14px;
+    gap: 12px;
+    width: 100%;
+    margin: 14px auto 0;
     position: relative;
     z-index: 60;
+}
+.center-dice-dock .dice-container {
+    margin-inline: auto;
+}
+.center-dice-dock .dice-comment {
+    width: 100%;
+    text-align: center;
+    align-items: center;
 }
 
 .center-dice-dock .dice-container {
