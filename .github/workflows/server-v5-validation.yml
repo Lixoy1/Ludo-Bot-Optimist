@@ -24,6 +24,12 @@ jobs:
       - name: Check room deep-link parsing
         run: |
           node server-v5/test_room_link.js
+      - name: Check lobby timer and quick-start controls
+        run: |
+          grep -q 'id="lobby-countdown"' server-v5/index.html
+          grep -q 'id="lobby-start-bots"' server-v5/index.html
+          grep -q 'START_WITH_BOTS' server-v5/static/js/main.js
+          grep -q 'lobby_deadline' server-v5/server.py
       - name: Check browser JavaScript syntax
         run: |
           node --check server-v5/static/js/main.js

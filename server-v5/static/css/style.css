@@ -1747,3 +1747,15 @@ svg { display: block; flex-shrink: 0; }
 
 .lobby-start-bots{display:block;width:100%;min-height:54px;margin:12px 0 6px;border:1px solid rgba(255,220,140,.65);border-radius:15px;background:linear-gradient(110deg,#f0c45e,#ffe7a4);color:#171727;font-weight:900;font-size:15px;box-shadow:0 7px 22px rgba(240,196,94,.18);cursor:pointer}
 .lobby-start-bots:disabled{opacity:.65;cursor:wait}
+
+/* Synchronized 60-second lobby countdown and quick-start control. */
+.lobby-countdown-panel[hidden],.lobby-start-bots[hidden],.lobby-start-note[hidden]{display:none!important}
+.lobby-countdown-panel{margin:20px 0 12px;padding:15px 17px;border:1px solid rgba(244,201,107,.34);border-radius:18px;background:linear-gradient(120deg,rgba(33,31,58,.97),rgba(21,29,48,.97));display:flex;align-items:center;justify-content:space-between;gap:12px}
+.lobby-countdown-copy{display:flex;flex-direction:column;gap:3px}
+.lobby-countdown-label{font-size:10px;letter-spacing:2px;color:#aeb5c9;font-weight:900}
+#lobby-countdown{font-size:30px;line-height:1.08;color:#f4c96b;font-variant-numeric:tabular-nums;font-weight:900}
+.lobby-countdown-hint{font-size:12px;color:#aeb5c9;text-align:right;max-width:130px;line-height:1.3}
+.lobby-start-bots{display:block;width:100%;min-height:56px;margin:0 0 5px;border:1px solid rgba(255,224,148,.72);border-radius:16px;background:linear-gradient(110deg,#f0c45e,#ffe7a4);color:#171727;font-weight:900;font-size:15px;letter-spacing:.3px;box-shadow:0 8px 24px rgba(240,196,94,.18);cursor:pointer}
+.lobby-start-bots:disabled{opacity:.62;cursor:wait}
+.lobby-start-note{text-align:center;color:#8992aa;font-size:11px;margin:3px 0 15px}
+@media(max-width:360px){.lobby-countdown-panel{padding:12px}.lobby-countdown-hint{font-size:11px;max-width:112px}#lobby-countdown{font-size:27px}.lobby-start-bots{font-size:13px}}

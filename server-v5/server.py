@@ -143,6 +143,7 @@ def load_rooms_from_db():
                 data["start_task"] = None
                 data["turn_task"] = None
                 data["turn_gen"] = 0
+                data.setdefault("lobby_deadline", None)
                 data["actor_task"] = None
                 data.setdefault("creator_user_id", None)
                 ROOMS[code] = data
@@ -197,6 +198,7 @@ async def create_room_state(code: str, mode: str = "STANDARD", chat_id: int = No
             "msg_id": msg_id,
             "creator_user_id": str(creator_user_id) if creator_user_id is not None else None,
             "start_task": None,
+            "lobby_deadline": None,
             "turn_task": None,
             "turn_gen": 0,
             "actor_task": None
@@ -220,8 +222,9 @@ def render_tg_lobby_text(room):
             while len(lines) < 4:
                 lines.append(f"{len(lines)+1}. _Ожидание игрока..._")
             body = "\n".join(lines)
-        footer = ("\n\n🤖 _Можно играть одному: нажмите «Играть с ботами», и свободные места займут AI-соперники._\n"
-                  "⏳ _Если ждёте людей, игра стартует автоматически через 15 сек после входа 2-го игрока (или при 4/4)._")
+        remaining = max(0, int((room.get("lobby_deadline") or (time.time() + 60)) - time.time()))
+        footer = (f"\n\n⏳ _Автостарт через {remaining} сек. или сразу при заполнении 4/4._\n"
+                  "🤖 _Для быстрого старта нажмите «Начать игру с ботами»._")
         return header + body + footer
     elif room["status"] == "PLAYING":
         active = next((p for p in players if p.get("color") == room.get("turn")), None)
@@ -248,7 +251,7 @@ def render_tg_lobby_kb(room):
             [InlineKeyboardButton(text="▶️ Старт", callback_data=f"start_{code}")]
         ])
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎮 Войти в игру", url=f"https://t.me/Ludo_optimist_bot?startapp=join_{code}")],
+        [InlineKeyboardButton(text="🎮 Войти в игру", url=f"https://t.me/Ludo_optimist_bot?startapp={code}")],
         [InlineKeyboardButton(text="🔄 Новая игра", callback_data=f"new_{room['game_mode']}")]
     ])
 
@@ -552,6 +555,7 @@ async def begin_match(room):
     fill_bot_seats(room)
     room["start_task"] = None
     room["status"] = "PLAYING"
+    room["lobby_deadline"] = None
     room["turn"] = room["players"][0]["color"]
     room["consecutive_sixes"] = 0
     room["dice"] = None
@@ -569,13 +573,23 @@ async def begin_match(room):
 async def schedule_autostart(room):
     current = asyncio.current_task()
     try:
-        await asyncio.sleep(15)
+        deadline = room.get("lobby_deadline") or (time.time() + 60)
+        await asyncio.sleep(max(0, deadline - time.time()))
         async with ROOM_LOCKS[room["code"]]:
-            if room["status"] == "WAITING" and len(room["players"]) >= 2:
+            if room["status"] == "WAITING" and room.get("players"):
                 await begin_match(room)
     finally:
         if room.get("start_task") is current:
             room["start_task"] = None
+
+def ensure_lobby_timer(room):
+    if room.get("status") != "WAITING" or not room.get("players"):
+        return
+    if room.get("lobby_deadline") is None:
+        room["lobby_deadline"] = time.time() + 60
+    task = room.get("start_task")
+    if task is None or task.done():
+        room["start_task"] = asyncio.create_task(schedule_autostart(room))
 
 async def next_turn(room):
     old_timer = room.get("turn_task")
@@ -689,6 +703,8 @@ async def cb_join_game(call: types.CallbackQuery):
             return
         existing = next((p for p in room["players"] if str(p.get("user_id")) == uid), None)
         if existing:
+            ensure_lobby_timer(room)
+            await sync_tg_message(room)
             await call.answer("Ты уже за столом.")
             return
         if len(room["players"]) >= 4:
@@ -732,7 +748,14 @@ async def cb_join_game(call: types.CallbackQuery):
             room["board_state"][color] = [-1, -1]
         elif room["game_mode"] == "BLITZ":
             room["board_state"][color] = [0, -1, -1, -1]
+        ensure_lobby_timer(room)
         await sync_tg_message(room)
+        if len(room["players"]) >= 4:
+            task = room.get("start_task")
+            if task and not task.done():
+                task.cancel()
+            room["start_task"] = None
+            await begin_match(room)
     await call.answer("Ты за столом!")
 
 
@@ -1031,17 +1054,23 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                         elif room["game_mode"] == "BLITZ":
                             room["board_state"][color] = [0, -1, -1, -1]
 
-                        await sync_tg_message(room)
-
                     if room["status"] == "WAITING":
+                        ensure_lobby_timer(room)
+                        await sync_tg_message(room)
                         await broadcast(room, {
                             "event": "ROOM_STATE",
                             "status": "WAITING",
                             "game_mode": room["game_mode"],
-                            "players": room["players"]
+                            "players": room["players"],
+                            "lobby_deadline": room.get("lobby_deadline"),
+                            "creator_user_id": room.get("creator_user_id")
                         })
-                        # Joining only seats the player. The explicit group START
-                        # callback controls when the match begins.
+                        if len(room["players"]) >= 4:
+                            task = room.get("start_task")
+                            if task and not task.done():
+                                task.cancel()
+                            room["start_task"] = None
+                            await begin_match(room)
                     else:
                         active_p = next((p for p in room["players"] if p["color"] == room["turn"]), room["players"][0])
                         await websocket.send_json({
@@ -1055,15 +1084,19 @@ async def ws_endpoint(websocket: WebSocket, room_code: str):
                             "timer": 15 if room["game_mode"] == "BLITZ" else 30
                         })
 
-            elif act == "START_GAME":
+            elif act in ("START_GAME", "START_WITH_BOTS"):
                 if not uid:
                     continue
                 async with ROOM_LOCKS[room["code"]]:
+                    seated = any(str(p.get("user_id")) == str(uid) for p in room["players"])
+                    host_id = str(room.get("creator_user_id") or (room["players"][0]["user_id"] if room["players"] else ""))
                     if room["status"] != "WAITING":
                         await websocket.send_json({"event": "GAME_ERROR", "message": "Игра уже началась"})
-                    elif not room["players"] or room["players"][0]["user_id"] != uid:
+                    elif act == "START_WITH_BOTS" and (not seated or (host_id and str(uid) != host_id)):
+                        await websocket.send_json({"event": "GAME_ERROR", "message": "Быстрый старт доступен создателю комнаты"})
+                    elif act == "START_GAME" and (not room["players"] or str(room["players"][0]["user_id"]) != str(uid)):
                         await websocket.send_json({"event": "GAME_ERROR", "message": "Начать игру может только создатель комнаты"})
-                    elif len(room["players"]) < 1:
+                    elif not room["players"]:
                         await websocket.send_json({"event": "GAME_ERROR", "message": "Сначала войдите в комнату"})
                     else:
                         task = room.get("start_task")

@@ -365,6 +365,10 @@ function playSound(name) {
     }
 }
 
+try { tg.ready && tg.ready(); } catch (e) {}
+if (!ROOM_CODE && typeof window.__resolveLudoRoomCode === "function") {
+    ROOM_CODE = window.__resolveLudoRoomCode();
+}
 let teamParam = null;
 let cleanRoomCode = typeof ROOM_CODE !== 'undefined' ? ROOM_CODE : "";
 
@@ -378,6 +382,7 @@ if (typeof ROOM_CODE !== 'undefined' && ROOM_CODE.includes("_")) {
 }
 
 if (typeof ROOM_CODE !== 'undefined' && ROOM_CODE !== "") {
+    localStorage.setItem("ludo_last_room_code", ROOM_CODE);
     connectWebSocket();
 } else {
     console.error("Ludo room code is missing. Telegram start_param:", window.Telegram?.WebApp?.initDataUnsafe?.start_param);
@@ -614,6 +619,11 @@ async function handleMessage(data) {
             joinRequestPending = false;
             showChatNotification('', data.message || "Требуется открыть игру через Telegram", null, 7000);
         } else if (data.event === "GAME_ERROR") {
+            const quickStart = document.getElementById("lobby-start-bots");
+            if (quickStart) {
+                quickStart.disabled = false;
+                quickStart.textContent = "🤖 НАЧАТЬ ИГРУ С БОТАМИ";
+            }
             showChatNotification('', data.message || tr("error"), null, 4500);
         } else if (data.event === "CONNECTION_ESTABLISHED") {
             // HÁMIŚE JOIN_GAME jiberemiz — server ózi sheshedi: bos WAITING bolsa
@@ -640,6 +650,7 @@ async function handleMessage(data) {
                 document.getElementById("game-info").style.display = "block";
                 document.getElementById("board-container").style.display = "none";
             } else if (data.status === "PLAYING") {
+                updateLobbyCountdown(null, 0, "PLAYING");
                 document.getElementById("game-info").style.display = "none";
                 document.getElementById("board-container").style.display = "block";
                 if (data.board_state) {
@@ -837,6 +848,30 @@ function buildLobbySlot(player) {
     return slot;
 }
 
+let lobbyCountdownInterval = null;
+function updateLobbyCountdown(deadline, playerCount, status) {
+    const panel = document.getElementById("lobby-countdown-panel");
+    const timer = document.getElementById("lobby-countdown");
+    if (!panel || !timer) return;
+    if (status !== "WAITING" || !playerCount) {
+        panel.hidden = true;
+        if (lobbyCountdownInterval) clearInterval(lobbyCountdownInterval);
+        lobbyCountdownInterval = null;
+        return;
+    }
+    panel.hidden = false;
+    if (lobbyCountdownInterval) clearInterval(lobbyCountdownInterval);
+    const serverDeadline = Number(deadline || 0) * 1000;
+    const tick = () => {
+        const left = serverDeadline > 0 ? Math.max(0, Math.ceil((serverDeadline - Date.now()) / 1000)) : 60;
+        timer.textContent = String(Math.floor(left / 60)).padStart(2, "0") + ":" + String(left % 60).padStart(2, "0");
+        const label = panel.querySelector(".lobby-countdown-label");
+        if (label) label.textContent = left === 0 ? "ЗАПУСКАЕМ ИГРУ" : "АВТОСТАРТ ЧЕРЕЗ";
+    };
+    tick();
+    lobbyCountdownInterval = setInterval(tick, 1000);
+}
+
 function updateRoomUI(data) {
     const slotsContainer = document.getElementById("lobby-slots");
     if (!slotsContainer) return;
@@ -846,6 +881,7 @@ function updateRoomUI(data) {
 
     const countEl = document.getElementById("lobby-count");
     if (countEl) countEl.textContent = `${data.players.length}/4`;
+    updateLobbyCountdown(data.lobby_deadline, data.players.length, data.status);
 
     if (isTeamMode) {
         const teams = ["A", "B"];
@@ -873,34 +909,23 @@ function updateRoomUI(data) {
     const startBtn = document.getElementById("start-btn");
     if (startBtn) startBtn.style.display = "none";
     const isAlreadyIn = data.players.some(p => String(p.user_id) === String(userId));
-    const controls = document.getElementById("controls");
-
-    // Quick-start control: visible to seated players while the room is waiting.
-    let botStartBtn = document.getElementById("lobby-start-bots");
-    if (isAlreadyIn && data.status === "WAITING") {
-        if (!botStartBtn && controls) {
-            botStartBtn = document.createElement("button");
-            botStartBtn.id = "lobby-start-bots";
-            botStartBtn.type = "button";
-            botStartBtn.className = "btn btn-primary lobby-start-bots";
-            botStartBtn.textContent = "🤖 Начать игру с ботами";
-            controls.appendChild(botStartBtn);
-        }
-        if (botStartBtn) {
-            botStartBtn.disabled = false;
-            botStartBtn.onclick = () => {
-                if (!ws || ws.readyState !== WebSocket.OPEN) {
-                    showChatNotification("", "Нет соединения с сервером. Подождите подключения.", null, 4000);
-                    return;
-                }
-                botStartBtn.disabled = true;
-                botStartBtn.textContent = "⏳ Запускаем игру…";
-                ws.send(JSON.stringify({ action: "START_GAME", user_id: userId }));
-            };
-        }
-    } else if (botStartBtn) {
-        botStartBtn.remove();
+    const botStartBtn = document.getElementById("lobby-start-bots");
+    const botStartNote = document.getElementById("lobby-start-note");
+    if (botStartBtn) {
+        botStartBtn.hidden = !(isAlreadyIn && data.status === "WAITING");
+        botStartBtn.disabled = false;
+        botStartBtn.textContent = "🤖 НАЧАТЬ ИГРУ С БОТАМИ";
+        botStartBtn.onclick = () => {
+            if (!ws || ws.readyState !== WebSocket.OPEN) {
+                showChatNotification("", "Нет соединения с сервером. Подождите подключения.", null, 4000);
+                return;
+            }
+            botStartBtn.disabled = true;
+            botStartBtn.textContent = "⏳ ЗАПУСКАЕМ ИГРУ…";
+            ws.send(JSON.stringify({ action: "START_WITH_BOTS", user_id: userId }));
+        };
     }
+    if (botStartNote) botStartNote.hidden = !(isAlreadyIn && data.status === "WAITING");
 
     // Spectator join control
     let joinBtn = document.getElementById("lobby-join-btn");
