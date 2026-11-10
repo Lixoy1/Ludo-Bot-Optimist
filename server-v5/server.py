@@ -256,7 +256,7 @@ def render_tg_lobby_text(room):
     title = MODE_NAMES.get(room["game_mode"], "🎲 Optimist Ludo")
     players = room["players"]
     if room["status"] == "WAITING":
-        header = f"🎮 **Optimist Ludo — {title}**\nКомната: `{room['code']}` | Игроков: **{len(players)}/4**\n\n"
+        header = f"🎮 **Optimist Ludo — {title}**\nИгроков: **{len(players)}/4**\n\n"
         if room["game_mode"] == "TEAM":
             team_a = [f"• {COLOR_EMOJI[p['color']]} {p['name']}" for p in players if p.get("team") == "A"]
             team_b = [f"• {COLOR_EMOJI[p['color']]} {p['name']}" for p in players if p.get("team") == "B"]
@@ -267,9 +267,12 @@ def render_tg_lobby_text(room):
             while len(lines) < 4:
                 lines.append(f"{len(lines)+1}. _Ожидание игрока..._")
             body = "\n".join(lines)
-        remaining = max(0, int((room.get("lobby_deadline") or (time.time() + 60)) - time.time()))
-        footer = (f"\n\n⏳ _Автостарт через {remaining} сек. или сразу при заполнении 4/4._\n"
-                  "🤖 _Для быстрого старта нажмите «Начать игру с ботами»._")
+        if len(players) < 2:
+            footer = "\n\n⏳ _Ожидаем второго игрока. После его входа игра начнётся автоматически через 15 секунд._"
+        else:
+            remaining = max(0, int((room.get("lobby_deadline") or (time.time() + 15)) - time.time()))
+            footer = (f"\n\n⏳ _Автостарт через {remaining} сек. или сразу при заполнении 4/4._"
+                      "\n🤖 _Можно начать раньше с ботами прямо в игре._")
         return header + body + footer
     elif room["status"] == "PLAYING":
         active = next((p for p in players if p.get("color") == room.get("turn")), None)
@@ -278,16 +281,16 @@ def render_tg_lobby_text(room):
             for p in players
         ])
         turn_line = f"\n\n🎲 **Сейчас ходит: {active['name']}**" if active else ""
-        return f"🔥 **Игра идёт! ({title})**\nКомната: `{room['code']}`{turn_line}\n\n{plist}"
+        return f"🔥 **Игра идёт! ({title})**{turn_line}\n\n{plist}"
     else:
         sorted_p = sorted(players, key=lambda x: x.get("rank") or 99)
         res = "\n".join([f"#{p.get('rank', '×')} {COLOR_EMOJI[p['color']]} {p['name']}" for p in sorted_p])
         return f"🏆 **Игра окончена! ({title})**\n\n{res}"
 
 def room_webapp_url(code: str) -> str:
-    """Open the bot's private chat first, then launch the room as an authenticated Telegram Mini App."""
+    """Open the game directly from the group message as a Telegram Mini App."""
     normalized = normalize_room_code(code)
-    return f"https://t.me/Ludo_optimist_bot?start=join_{normalized}"
+    return f"{WEBAPP_URL}/room/{normalized}"
 
 def render_tg_lobby_kb(room):
     code = room["code"]
@@ -295,14 +298,16 @@ def render_tg_lobby_kb(room):
         return InlineKeyboardMarkup(inline_keyboard=[
             [InlineKeyboardButton(text="🔄 Новая игра", callback_data=f"new_{room['game_mode']}")]
         ])
-    if room["status"] == "WAITING":
+    if room["game_mode"] == "TEAM" and room["status"] == "WAITING":
         return InlineKeyboardMarkup(inline_keyboard=[
-            [InlineKeyboardButton(text="🎲 Присоединиться", callback_data=f"join_{code}")],
-            [InlineKeyboardButton(text="▶️ Старт", callback_data=f"start_{code}")]
+            [
+                InlineKeyboardButton(text="🔴🟡 Команда A", web_app=WebAppInfo(url=room_webapp_url(code + "_A"))),
+                InlineKeyboardButton(text="🟢🔵 Команда B", web_app=WebAppInfo(url=room_webapp_url(code + "_B")))
+            ]
         ])
+    label = "🎲 Открыть игру" if room["status"] == "WAITING" else "🎮 Вернуться в игру"
     return InlineKeyboardMarkup(inline_keyboard=[
-        [InlineKeyboardButton(text="🎮 Войти в игру", url=room_webapp_url(code))],
-        [InlineKeyboardButton(text="🔄 Новая игра", callback_data=f"new_{room['game_mode']}")]
+        [InlineKeyboardButton(text=label, web_app=WebAppInfo(url=room_webapp_url(code)))]
     ])
 
 async def sync_tg_message(room):
@@ -669,20 +674,23 @@ async def start_waiting_room(room, actor_id, source="miniapp", websocket=None):
 async def schedule_autostart(room):
     current = asyncio.current_task()
     try:
-        deadline = room.get("lobby_deadline") or (time.time() + 60)
+        deadline = room.get("lobby_deadline") or (time.time() + 15)
         await asyncio.sleep(max(0, deadline - time.time()))
         async with ROOM_LOCKS[room["code"]]:
-            if room["status"] == "WAITING" and room.get("players"):
+            # A match starts only after at least two real players have joined.
+            if room["status"] == "WAITING" and len(room.get("players", [])) >= 2:
                 await begin_match(room)
     finally:
         if room.get("start_task") is current:
             room["start_task"] = None
 
 def ensure_lobby_timer(room):
-    if room.get("status") != "WAITING" or not room.get("players"):
+    # No visible "Start" stage: one player waits; the second player starts
+    # the 15-second countdown; four players start the match immediately.
+    if room.get("status") != "WAITING" or len(room.get("players", [])) < 2:
         return
     if room.get("lobby_deadline") is None:
-        room["lobby_deadline"] = time.time() + 60
+        room["lobby_deadline"] = time.time() + 15
     task = room.get("start_task")
     if task is None or task.done():
         room["start_task"] = asyncio.create_task(schedule_autostart(room))
