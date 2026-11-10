@@ -19,7 +19,7 @@ function code({serverCode="",startParam="",initData="",search="",hash="",pathnam
     },
     URLSearchParams,navigator:{language:"ru"},console,decodeURIComponent
   };
-  return vm.runInNewContext(renderedScript + "\\nROOM_CODE;", context);
+  return vm.runInNewContext(renderedScript + "\nROOM_CODE;", context);
 }
 assert.equal(code({serverCode:"TSXTEP"}),"TSXTEP");
 assert.equal(code({serverCode:"TSXTEP_A"}),"TSXTEP_A");
